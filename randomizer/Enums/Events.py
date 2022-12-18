@@ -28,6 +28,7 @@ class Events(IntEnum):
     JapesChunkySwitch = auto()
     JapesDiddySwitch2 = auto()
     JapesSpawnW5 = auto()
+    JapesMountainTopGB = auto()
 
     # Angry Aztec events
     FedTotem = auto()
@@ -55,12 +56,17 @@ class Events(IntEnum):
     LighthouseEnguarde = auto()
     SealReleased = auto()
     MechafishSummoned = auto()
+    GalleonDonkeyPad = auto()
+    GalleonDiddyPad = auto()
+    GalleonLankyPad = auto()
+    GalleonTinyPad = auto()
     GalleonChunkyPad = auto()
     ActivatedLighthouse = auto()
     ShipyardEnguarde = auto()
     ShipyardTreasureRoomOpened = auto()
     TreasureRoomTeleporterUnlocked = auto()
     PearlsCollected = auto()
+    GalleonCannonRoomOpened = auto()
 
     # Fungi Forest events
     Night = auto()
@@ -97,6 +103,7 @@ class Events(IntEnum):
     KRoolLanky = auto()
     KRoolTiny = auto()
     KRoolChunky = auto()
+    KRoolDefeated = auto()
 
     # Level entered events for shops
     JapesEntered = auto()

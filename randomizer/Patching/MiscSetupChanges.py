@@ -1,20 +1,13 @@
-"""Apply barrel changes."""
+"""Apply misc setup changes."""
 import math
 import random
-import struct
 
 import js
 from randomizer.Lists.MapsAndExits import Maps
 from randomizer.Lists.Patches import DirtPatchLocations
 from randomizer.Patching.Patcher import ROM
 from randomizer.Spoiler import Spoiler
-
-
-def float_to_hex(f):
-    """Convert float to hex."""
-    if f == 0:
-        return "0x00000000"
-    return hex(struct.unpack("<I", struct.pack("<f", f))[0])
+from randomizer.Patching.Lib import float_to_hex
 
 
 def pickRandomPositionCircle(center_x, center_z, min_radius, max_radius):
@@ -110,27 +103,11 @@ def pickChunkyCabinPadPositions():
 def randomize_setup(spoiler: Spoiler):
     """Randomize setup."""
     pickup_weights = [
-        {
-            "item": "orange",
-            "type": 0x56,
-            "weight": 3,
-        },
-        {
-            "item": "film",
-            "type": 0x98,
-            "weight": 1,
-        },
-        {
-            "item": "crystals",
-            "type": 0x8E,
-            "weight": 4,
-        },
+        {"item": "orange", "type": 0x56, "weight": 3},
+        {"item": "film", "type": 0x98, "weight": 1},
+        {"item": "crystals", "type": 0x8E, "weight": 4},
         {"item": "standard_crate", "type": 0x8F, "weight": 4},
-        {
-            "item": "homing_crate",
-            "type": 0x11,
-            "weight": 2,
-        },
+        {"item": "homing_crate", "type": 0x11, "weight": 2},
         # {
         #     "item": "feather_single",
         #     "type": 0x15D,
@@ -181,15 +158,7 @@ def randomize_setup(spoiler: Spoiler):
         {"map": Maps.CastleCrypt, "item_list": [0x247, 0x248, 0x249, 0x24A]},
     ]
     number_gb_data = [
-        {
-            "subtype": "corner",
-            "numbers": [
-                {"number": 12, "rot": 0},
-                {"number": 3, "rot": 1},
-                {"number": 5, "rot": 2},
-                {"number": 6, "rot": 3},
-            ],
-        },
+        {"subtype": "corner", "numbers": [{"number": 12, "rot": 0}, {"number": 3, "rot": 1}, {"number": 5, "rot": 2}, {"number": 6, "rot": 3}]},
         {
             "subtype": "edge",
             "numbers": [
@@ -203,15 +172,7 @@ def randomize_setup(spoiler: Spoiler):
                 {"number": 1, "rot": 3},
             ],
         },
-        {
-            "subtype": "center",
-            "numbers": [
-                {"number": 13, "rot": 0},
-                {"number": 15, "rot": 0},
-                {"number": 11, "rot": 0},
-                {"number": 2, "rot": 0},
-            ],
-        },
+        {"subtype": "center", "numbers": [{"number": 13, "rot": 0}, {"number": 15, "rot": 0}, {"number": 11, "rot": 0}, {"number": 2, "rot": 0}]},
     ]
     vase_puzzle_positions = [
         # [365.533, 138.167, 717.282], # Exclude center to force it to be a vase
@@ -226,7 +187,7 @@ def randomize_setup(spoiler: Spoiler):
 
     if enabled:
         diddy_5di_pads = pickRandomPositionsMult(287.94, 312.119, 0, 140, 6, 40)
-        lanky_fungi_mush = pickRandomPositionsMult(274.9, 316.505, 40, 160, 6, 40)
+        lanky_fungi_mush = pickRandomPositionsMult(274.9, 316.505, 40, 160, 5, 40)
         chunky_5dc_pads = pickChunkyCabinPadPositions()
         random.shuffle(vase_puzzle_positions)
         vase_puzzle_rando_progress = 0
@@ -238,20 +199,7 @@ def randomize_setup(spoiler: Spoiler):
             offsets = []
             positions = []
             if cont_map_id == Maps.FranticFactory:
-                number_replacement_data = {
-                    "corner": {
-                        "offsets": [],
-                        "positions": [],
-                    },
-                    "edge": {
-                        "offsets": [],
-                        "positions": [],
-                    },
-                    "center": {
-                        "offsets": [],
-                        "positions": [],
-                    },
-                }
+                number_replacement_data = {"corner": {"offsets": [], "positions": []}, "edge": {"offsets": [], "positions": []}, "center": {"offsets": [], "positions": []}}
             for model2_item in range(model2_count):
                 item_start = cont_map_setup_address + 4 + (model2_item * 0x30)
                 ROM().seek(item_start + 0x28)
@@ -357,12 +305,7 @@ def randomize_setup(spoiler: Spoiler):
                         ROM().seek(offset + 0x1C)
                         ROM().writeMultipleBytes(positions[index][3], 4)
                 if cont_map_id == Maps.FranticFactory:
-                    rotation_hexes = [
-                        "0x00000000",  # 0
-                        "0x42B40000",  # 90
-                        "0x43340000",  # 180
-                        "0x43870000",  # 270
-                    ]
+                    rotation_hexes = ["0x00000000", "0x42B40000", "0x43340000", "0x43870000"]  # 0  # 90  # 180  # 270
                     for subtype in number_replacement_data:
                         subtype_name = subtype
                         subtype = number_replacement_data[subtype]
@@ -415,7 +358,7 @@ def randomize_setup(spoiler: Spoiler):
                             dirt_bytes.append(int(float_to_hex(patch.x), 16))
                             dirt_bytes.append(int(float_to_hex(patch.y), 16))
                             dirt_bytes.append(int(float_to_hex(patch.z), 16))
-                            dirt_bytes.append(int(float_to_hex(1), 16))
+                            dirt_bytes.append(int(float_to_hex(patch.scale), 16))
                             for x in range(8):
                                 dirt_bytes.append(0)
                             rot_type_hex = hex(patch.rotation) + "007B"

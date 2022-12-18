@@ -3,7 +3,6 @@ from randomizer.Enums.Kongs import Kongs
 from randomizer.Enums.Levels import Levels
 from randomizer.Enums.Regions import Regions
 from randomizer.Enums.Time import Time
-from randomizer.Enums.Transitions import Transitions
 
 
 class LocationLogic:
@@ -48,9 +47,10 @@ class Collectible:
 class Region:
     """Region contains shufflable locations, events, and transitions to other regions."""
 
-    def __init__(self, name, level, tagbarrel, deathwarp, locations, events, transitionFronts, restart=None):
+    def __init__(self, name, hint_name, level, tagbarrel, deathwarp, locations, events, transitionFronts, restart=None):
         """Initialize with given parameters."""
         self.name = name
+        self.hint_name = hint_name
         self.level = level
         self.tagbarrel = tagbarrel
         self.deathwarp = None
@@ -173,14 +173,7 @@ class TransitionBack:
 class TransitionFront:
     """The entered side of a transition between regions."""
 
-    def __init__(
-        self,
-        dest,
-        logic,
-        exitShuffleId=None,
-        assumed=False,
-        time=Time.Both,
-    ):
+    def __init__(self, dest, logic, exitShuffleId=None, assumed=False, time=Time.Both):
         """Initialize with given parameters."""
         self.dest = dest  # Planning to remove this
         self.logic = logic  # Lambda function for accessibility
@@ -201,5 +194,6 @@ class Sphere:
 
     def __init__(self):
         """Initialize with given parameters."""
+        self.seedBeaten = False
         self.availableGBs = 0
         self.locations = []

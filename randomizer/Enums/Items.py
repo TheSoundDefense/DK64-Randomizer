@@ -6,6 +6,7 @@ class Items(IntEnum):
     """Item enum."""
 
     NoItem = auto()
+    TestItem = auto()
 
     Donkey = auto()
     Diddy = auto()
@@ -61,10 +62,12 @@ class Items(IntEnum):
     Triangle = auto()
     ProgressiveInstrumentUpgrade = auto()
 
+    Camera = auto()
+    Shockwave = auto()
+    CameraAndShockwave = auto()
+
     NintendoCoin = auto()
     RarewareCoin = auto()
-
-    CameraAndShockwave = auto()
 
     JungleJapesKey = auto()
     AngryAztecKey = auto()
@@ -90,6 +93,9 @@ class Items(IntEnum):
     BananaFairy = auto()
     BananaMedal = auto()
     BattleCrown = auto()
+
+    Bean = auto()
+    Pearl = auto()
 
     BananaHoard = auto()
 

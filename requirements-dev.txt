@@ -13,3 +13,7 @@ beautifulsoup4
 wheel
 setuptools
 djlint
+cpplint
+flask
+flask-cors
+discord-webhook

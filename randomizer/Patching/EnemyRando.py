@@ -2,13 +2,88 @@
 import random
 
 import js
-from randomizer.Lists.EnemyTypes import Enemies, EnemyMetaData
+from randomizer.Lists.EnemyTypes import Enemies, EnemyMetaData, convertEnemyName
+from randomizer.Enums.EnemySubtypes import EnemySubtype
 from randomizer.Lists.MapsAndExits import Maps
 from randomizer.Patching.Patcher import ROM
 from randomizer.Spoiler import Spoiler
 
 
-def getBalancedCrownEnemyRando(crown_setting, damage_ohko_setting):
+class PkmnSnapEnemy:
+    """Class which determines if an enemy is available for the pkmn snap goal."""
+
+    def __init__(self, enemy):
+        """Initialize with given parameters."""
+        self.enemy = enemy
+        if enemy in (Enemies.KasplatDK, Enemies.KasplatDiddy, Enemies.KasplatLanky, Enemies.KasplatTiny, Enemies.KasplatChunky, Enemies.Book, Enemies.EvilTomato):
+            # Always spawned, not in pool
+            self.spawned = True
+        else:
+            self.spawned = False
+        self.default = self.spawned
+
+    def addEnemy(self):
+        """Add enemy as spawned."""
+        self.spawned = True
+
+    def reset(self):
+        """Reset enemy to default state."""
+        self.spawned = self.default
+
+
+pkmn_snap_enemies = [
+    PkmnSnapEnemy(Enemies.Kaboom),
+    PkmnSnapEnemy(Enemies.BeaverBlue),
+    PkmnSnapEnemy(Enemies.Book),
+    PkmnSnapEnemy(Enemies.Klobber),
+    PkmnSnapEnemy(Enemies.ZingerCharger),
+    PkmnSnapEnemy(Enemies.Klump),
+    PkmnSnapEnemy(Enemies.KlaptrapGreen),
+    PkmnSnapEnemy(Enemies.ZingerLime),
+    PkmnSnapEnemy(Enemies.KlaptrapPurple),
+    PkmnSnapEnemy(Enemies.KlaptrapRed),
+    PkmnSnapEnemy(Enemies.BeaverGold),
+    PkmnSnapEnemy(Enemies.MushroomMan),
+    PkmnSnapEnemy(Enemies.Ruler),
+    PkmnSnapEnemy(Enemies.RoboKremling),
+    PkmnSnapEnemy(Enemies.Kremling),
+    PkmnSnapEnemy(Enemies.KasplatDK),
+    PkmnSnapEnemy(Enemies.KasplatDiddy),
+    PkmnSnapEnemy(Enemies.KasplatLanky),
+    PkmnSnapEnemy(Enemies.KasplatTiny),
+    PkmnSnapEnemy(Enemies.KasplatChunky),
+    PkmnSnapEnemy(Enemies.Guard),
+    PkmnSnapEnemy(Enemies.ZingerRobo),
+    PkmnSnapEnemy(Enemies.Krossbones),
+    PkmnSnapEnemy(Enemies.Shuri),
+    PkmnSnapEnemy(Enemies.Gimpfish),
+    PkmnSnapEnemy(Enemies.MrDice0),
+    PkmnSnapEnemy(Enemies.SirDomino),
+    PkmnSnapEnemy(Enemies.MrDice1),
+    PkmnSnapEnemy(Enemies.FireballGlasses),
+    PkmnSnapEnemy(Enemies.SpiderSmall),
+    PkmnSnapEnemy(Enemies.Bat),
+    PkmnSnapEnemy(Enemies.EvilTomato),
+    PkmnSnapEnemy(Enemies.Ghost),
+    PkmnSnapEnemy(Enemies.Pufftup),
+    PkmnSnapEnemy(Enemies.Kosha),
+]
+
+
+def resetPkmnSnap():
+    """Reset Pokemon Snap Listing."""
+    for enemy in pkmn_snap_enemies:
+        enemy.reset()
+
+
+def setPkmnSnapEnemy(focused_enemy):
+    """Set enemy to being spawned."""
+    for enemy in pkmn_snap_enemies:
+        if enemy.enemy == focused_enemy:
+            enemy.addEnemy()
+
+
+def getBalancedCrownEnemyRando(spoiler: Spoiler, crown_setting, damage_ohko_setting):
     """Get array of weighted enemies."""
     # this library will contain a list for every enemy it needs to generate
     enemy_swaps_library = {}
@@ -35,29 +110,51 @@ def getBalancedCrownEnemyRando(crown_setting, damage_ohko_setting):
         disruptive_0 = []  # the easiest enemies
         legacy_hard_mode = []  # legacy map with the exact same balance as the old "Hard" mode
 
+        # Determine whether any crown-enabled enemies have been selected
+        crown_enemy_found = False
+        for enemy in EnemyMetaData:
+            if convertEnemyName(EnemyMetaData[enemy].name) in spoiler.settings.enemies_selected and EnemyMetaData[enemy].crown_enabled is True:
+                crown_enemy_found = True
+                break
         # fill in the lists with the possibilities that belong in them.
         for enemy in EnemyMetaData:
             if EnemyMetaData[enemy].crown_enabled and enemy is not Enemies.GetOut:
-                every_enemy.append(enemy)
-                if EnemyMetaData[enemy].disruptive <= 1:
-                    disruptive_max_1.append(enemy)
-                if EnemyMetaData[enemy].kasplat is True:
-                    disruptive_at_most_kasplat.append(enemy)
-                elif EnemyMetaData[enemy].disruptive == 0:
-                    disruptive_at_most_kasplat.append(enemy)
-                    disruptive_0.append(enemy)
+                if convertEnemyName(EnemyMetaData[enemy].name) in spoiler.settings.enemies_selected or crown_enemy_found is False:
+                    every_enemy.append(enemy)
+                    if EnemyMetaData[enemy].disruptive <= 1:
+                        disruptive_max_1.append(enemy)
+                    if EnemyMetaData[enemy].kasplat is True:
+                        disruptive_at_most_kasplat.append(enemy)
+                    elif EnemyMetaData[enemy].disruptive == 0:
+                        disruptive_at_most_kasplat.append(enemy)
+                        disruptive_0.append(enemy)
+        # Make sure every list is populated, even if too few crown-enabled enemies have been selected
+        # This breaks the crown balancing, but what the player wants, the player gets
+        if len(disruptive_max_1) == 0:
+            disruptive_max_1.append(every_enemy.copy())
+            for enemy in EnemyMetaData:
+                if EnemyMetaData[enemy].disruptive > 1:
+                    EnemyMetaData[enemy].disruptive = 1
+        if len(disruptive_at_most_kasplat) == 0:
+            disruptive_at_most_kasplat.append(disruptive_max_1.copy())
+        if len(disruptive_0) == 0:
+            disruptive_0.append(disruptive_at_most_kasplat)
+            for enemy in EnemyMetaData:
+                if EnemyMetaData[enemy].disruptive > 0:
+                    EnemyMetaData[enemy].disruptive = 0
         # the legacy_hard_mode list is trickier to fill, but here goes:
         bias = 2
         for enemy in EnemyMetaData.keys():
             if EnemyMetaData[enemy].crown_enabled:
-                base_weight = EnemyMetaData[enemy].crown_weight
-                weight_diff = abs(base_weight - bias)
-                new_weight = abs(10 - weight_diff)
-                if enemy == Enemies.GetOut:
-                    new_weight = 1
-                if damage_ohko_setting is False or enemy is not Enemies.GetOut:
-                    for count in range(new_weight):
-                        legacy_hard_mode.append(enemy)
+                if convertEnemyName(EnemyMetaData[enemy].name) in spoiler.settings.enemies_selected or crown_enemy_found is False:
+                    base_weight = EnemyMetaData[enemy].crown_weight
+                    weight_diff = abs(base_weight - bias)
+                    new_weight = abs(10 - weight_diff)
+                    if enemy == Enemies.GetOut:
+                        new_weight = 1
+                    if damage_ohko_setting is False or enemy is not Enemies.GetOut:
+                        for count in range(new_weight):
+                            legacy_hard_mode.append(enemy)
         # picking enemies to put in the crown battles
         if crown_setting == "easy":
             for map_id in enemy_swaps_library:
@@ -72,7 +169,6 @@ def getBalancedCrownEnemyRando(crown_setting, damage_ohko_setting):
                 count_disruptive = 0
                 count_kasplats = 0
                 number_of_enemies = 3
-                get_out_spawned_this_map = False
                 if map_id == Maps.GalleonCrown or map_id == Maps.LobbyCrown or map_id == Maps.HelmCrown:
                     number_of_enemies = 4
                 for count in range(number_of_enemies):
@@ -93,29 +189,27 @@ def getBalancedCrownEnemyRando(crown_setting, damage_ohko_setting):
                             new_enemy = random.choice(disruptive_at_most_kasplat)
                         elif count_kasplats == 1:
                             new_enemy = random.choice(disruptive_0)
-                    elif count_kasplats > 3 or (count_kasplats > 2 and count_disruptive > 1) or (count_kasplats == 2 and count_disruptive == 2):
+                    if count_kasplats > 3 or (count_kasplats > 2 and count_disruptive > 1) or (count_kasplats == 2 and count_disruptive == 2):
                         print("This is a mistake in the crown enemy algorithm. Report this to the devs.")
                         new_enemy = Enemies.BeaverGold
-                    # Add in a chance for Get Out to appear in crown battles.
-                    if damage_ohko_setting is False and count_disruptive < 2 and get_out_spawned_this_map is False and random.randint(0, 1000) > 994:
-                        new_enemy = Enemies.GetOut
-                        get_out_spawned_this_map = True
                     # We picked a new enemy, let's update our information and add it to the list
                     if EnemyMetaData[new_enemy].kasplat is True:
                         count_kasplats = count_kasplats + 1
                     count_disruptive = EnemyMetaData[new_enemy].disruptive + count_disruptive
                     enemy_swaps_library[map_id].append(new_enemy)
         elif crown_setting == "hard":
-            get_out_spawned_this_hard_map = False
             for map_id in enemy_swaps_library:
                 number_of_enemies = 3
                 if map_id == Maps.GalleonCrown or map_id == Maps.LobbyCrown or map_id == Maps.HelmCrown:
                     number_of_enemies = 4
+                get_out_spawned_this_hard_map = False
                 for count in range(number_of_enemies):
                     if get_out_spawned_this_hard_map:
                         enemy_to_place = random.choice([possible_enemy for possible_enemy in legacy_hard_mode if possible_enemy != Enemies.GetOut])
                     else:
                         enemy_to_place = random.choice(legacy_hard_mode)
+                        if enemy_to_place == Enemies.GetOut:
+                            get_out_spawned_this_hard_map = True
                     enemy_swaps_library[map_id].append(enemy_to_place)
         # one last shuffle, to make sure any enemy can spawn in any spot
         for map_id in enemy_swaps_library:
@@ -134,18 +228,13 @@ def randomize_enemies(spoiler: Spoiler):
                     "vanilla_location": 0,  # Kong index which is tied to the kasplat. Eg. This would take the DK Kasplat location (DK is kong 0)
                     "replace_with": 1,  # Which Kasplat will go in that position (0 = DK, 1 = Diddy etc)
                 },
-                {
-                    "vanilla_location": 1,
-                    "replace_with": 3,
-                },
-                {
-                    "vanilla_location": 2,
-                    "replace_with": 0,
-                },
+                {"vanilla_location": 1, "replace_with": 3},
+                {"vanilla_location": 2, "replace_with": 0},
                 {"vanilla_location": 3, "replace_with": 2},
             ],
         }
     ]
+    resetPkmnSnap()
     valid_maps = [
         Maps.JapesMountain,
         Maps.JungleJapes,
@@ -235,18 +324,7 @@ def randomize_enemies(spoiler: Spoiler):
         Maps.ForestLankyZingersRoom,
         Maps.CastleBoss,
     ]
-    crown_maps = [
-        Maps.JapesCrown,
-        Maps.AztecCrown,
-        Maps.FactoryCrown,
-        Maps.GalleonCrown,
-        Maps.ForestCrown,
-        Maps.CavesCrown,
-        Maps.CastleCrown,
-        Maps.HelmCrown,
-        Maps.SnidesCrown,
-        Maps.LobbyCrown,
-    ]
+    crown_maps = [Maps.JapesCrown, Maps.AztecCrown, Maps.FactoryCrown, Maps.GalleonCrown, Maps.ForestCrown, Maps.CavesCrown, Maps.CastleCrown, Maps.HelmCrown, Maps.SnidesCrown, Maps.LobbyCrown]
     minigame_maps_easy = [
         Maps.BusyBarrelBarrageEasy,
         Maps.BusyBarrelBarrageHard,
@@ -255,31 +333,17 @@ def randomize_enemies(spoiler: Spoiler):
         Maps.HelmBarrelChunkyHidden,
         Maps.HelmBarrelChunkyShooting,
     ]
-    minigame_maps_beatable = [
-        Maps.MadMazeMaulEasy,
-        Maps.MadMazeMaulNormal,
-        Maps.MadMazeMaulHard,
-        Maps.MadMazeMaulInsane,
-    ]
-    minigame_maps_nolimit = [
-        Maps.HelmBarrelLankyMaze,
-        Maps.StashSnatchEasy,
-        Maps.StashSnatchNormal,
-        Maps.StashSnatchHard,
-        Maps.StashSnatchInsane,
-    ]
-    minigame_maps_beavers = [
-        Maps.BeaverBotherEasy,
-        Maps.BeaverBotherNormal,
-        Maps.BeaverBotherHard,
-    ]
+    minigame_maps_beatable = [Maps.MadMazeMaulEasy, Maps.MadMazeMaulNormal, Maps.MadMazeMaulHard, Maps.MadMazeMaulInsane]
+    minigame_maps_nolimit = [Maps.HelmBarrelLankyMaze, Maps.StashSnatchEasy, Maps.StashSnatchNormal, Maps.StashSnatchHard, Maps.StashSnatchInsane]
+    minigame_maps_beavers = [Maps.BeaverBotherEasy, Maps.BeaverBotherNormal, Maps.BeaverBotherHard]
     minigame_maps_total = minigame_maps_easy.copy()
     minigame_maps_total.extend(minigame_maps_beatable)
     minigame_maps_total.extend(minigame_maps_nolimit)
     minigame_maps_total.extend(minigame_maps_beavers)
     bbbarrage_maps = (Maps.BusyBarrelBarrageEasy, Maps.BusyBarrelBarrageNormal, Maps.BusyBarrelBarrageHard)
+    # Define Enemy Classes, Used for detection of if an enemy will be replaced
     enemy_classes = {
-        "ground_simple": [
+        EnemySubtype.GroundSimple: [
             Enemies.BeaverBlue,
             Enemies.KlaptrapGreen,
             Enemies.BeaverGold,
@@ -294,7 +358,7 @@ def randomize_enemies(spoiler: Spoiler):
             Enemies.SpiderSmall,
             Enemies.Ghost,
         ],
-        "air": [
+        EnemySubtype.Air: [
             Enemies.ZingerCharger,
             Enemies.ZingerLime,
             Enemies.ZingerRobo,
@@ -302,7 +366,7 @@ def randomize_enemies(spoiler: Spoiler):
             # Enemies.Bug, # Crashes on N64
             # Enemies.Book, # Causes way too many problems
         ],
-        "ground_beefyboys": [
+        EnemySubtype.GroundBeefy: [
             Enemies.Klump,
             Enemies.RoboKremling,
             # Enemies.EvilTomato, # Causes way too many problems
@@ -313,20 +377,48 @@ def randomize_enemies(spoiler: Spoiler):
             Enemies.KlaptrapRed,
             Enemies.Guard,
         ],
-        "water": [
-            Enemies.Shuri,
-            Enemies.Gimpfish,
-            Enemies.Pufftup,
-        ],
+        EnemySubtype.Water: [Enemies.Shuri, Enemies.Gimpfish, Enemies.Pufftup],
     }
+    replacement_priority = {
+        EnemySubtype.GroundSimple: [EnemySubtype.GroundBeefy, EnemySubtype.Water, EnemySubtype.Air],
+        EnemySubtype.GroundBeefy: [EnemySubtype.GroundSimple, EnemySubtype.Water, EnemySubtype.Air],
+        EnemySubtype.Water: [EnemySubtype.Air, EnemySubtype.GroundSimple, EnemySubtype.GroundBeefy],
+        EnemySubtype.Air: [EnemySubtype.GroundSimple, EnemySubtype.GroundBeefy, EnemySubtype.Water],
+    }
+    # Define Enemies that can be placed in those classes
+    enemy_placement_classes = {}
+    banned_classes = []
+    no_ground_simple_selected = False
+    for enemy_class in enemy_classes:
+        class_list = []
+        for enemy in enemy_classes[enemy_class]:
+            if convertEnemyName(EnemyMetaData[enemy].name) in spoiler.settings.enemies_selected:
+                class_list.append(enemy)
+        if enemy_class == EnemySubtype.GroundSimple and len(class_list) == 0:
+            no_ground_simple_selected = True
+        if len(class_list) == 0:
+            # Nothing present, use backup
+            for repl_type in replacement_priority[enemy_class]:
+                if len(class_list) == 0:
+                    for enemy in enemy_classes[repl_type]:
+                        if convertEnemyName(EnemyMetaData[enemy].name) in spoiler.settings.enemies_selected:
+                            class_list.append(enemy)
+        if len(class_list) > 0:
+            enemy_placement_classes[enemy_class] = class_list.copy()
+        else:
+            # Replace Nothing
+            banned_classes.append(enemy_class)
+    for enemy_class in banned_classes:
+        del enemy_classes[enemy_class]
+    # Crown Enemy Stuff
     crown_enemies_library = {}
     crown_enemies = []
     for enemy in EnemyMetaData:
         if EnemyMetaData[enemy].crown_enabled is True:
             crown_enemies.append(enemy)
-    if spoiler.settings.enemy_rando or spoiler.settings.kasplat_rando or spoiler.settings.crown_enemy_rando != "off":  # TODO: Add option for crown enemy rando
+    if spoiler.settings.enemy_rando or spoiler.settings.crown_enemy_rando != "off":
         boolean_damage_is_ohko = spoiler.settings.damage_amount == "ohko"
-        crown_enemies_library = getBalancedCrownEnemyRando(spoiler.settings.crown_enemy_rando, boolean_damage_is_ohko)
+        crown_enemies_library = getBalancedCrownEnemyRando(spoiler, spoiler.settings.crown_enemy_rando, boolean_damage_is_ohko)
         minigame_enemies_simple = []
         minigame_enemies_beatable = []
         minigame_enemies_nolimit = []
@@ -361,7 +453,7 @@ def randomize_enemies(spoiler: Spoiler):
             for enemy_class in enemy_classes:
                 arr = []
                 for x in range(spawner_count):
-                    arr.append(random.choice(enemy_classes[enemy_class]))
+                    arr.append(random.choice(enemy_placement_classes[enemy_class]))
                 enemy_swaps[enemy_class] = arr
             offset += 2
             for x in range(spawner_count):
@@ -374,17 +466,6 @@ def randomize_enemies(spoiler: Spoiler):
                 extra_count = int.from_bytes(ROM().readBytes(1), "big")
                 offset += 0x16 + (extra_count * 2)
                 vanilla_spawners.append({"enemy_id": enemy_id, "offset": init_offset, "index": enemy_index})
-            if spoiler.settings.kasplat_rando and not spoiler.settings.kasplat_location_rando:
-                # Shuffle within vanilla locations
-                for cont_map in spoiler.enemy_replacements:
-                    if cont_map["container_map"] == cont_map_id:
-                        for kasplat in cont_map["kasplat_swaps"]:
-                            source_kasplat_type = kasplat["vanilla_location"] + Enemies.KasplatDK
-                            replacement_kasplat_type = kasplat["replace_with"] + Enemies.KasplatDK
-                            for spawner in vanilla_spawners:
-                                if spawner["enemy_id"] == source_kasplat_type:
-                                    ROM().seek(cont_map_spawner_address + spawner["offset"])
-                                    ROM().writeMultipleBytes(replacement_kasplat_type, 1)
             if spoiler.settings.enemy_rando and cont_map_id in valid_maps:
                 for enemy_class in enemy_swaps:
                     arr = enemy_swaps[enemy_class]
@@ -395,33 +476,36 @@ def randomize_enemies(spoiler: Spoiler):
                             if cont_map_id != Maps.FranticFactory or spawner["index"] < 35 or spawner["index"] > 44:
                                 new_enemy_id = arr[sub_index]
                                 sub_index += 1
-                                if cont_map_id != Maps.ForestSpider or EnemyMetaData[new_enemy_id].aggro != 4:  # Prevent enemies being stuck in the ceiling
-                                    if new_enemy_id != Enemies.Book or cont_map_id not in (Maps.CavesDonkeyCabin, Maps.JapesLankyCave, Maps.AngryAztecLobby):
-                                        if new_enemy_id != Enemies.Kosha or cont_map_id != Maps.CavesDiddyLowerCabin:
-                                            if new_enemy_id != Enemies.Guard or cont_map_id not in (Maps.CavesDiddyLowerCabin, Maps.CavesTinyIgloo, Maps.CavesTinyCabin):
-                                                ROM().seek(cont_map_spawner_address + spawner["offset"])
-                                                ROM().writeMultipleBytes(new_enemy_id, 1)
-                                                if new_enemy_id in EnemyMetaData.keys():
-                                                    ROM().seek(cont_map_spawner_address + spawner["offset"] + 0x10)
-                                                    ROM().writeMultipleBytes(EnemyMetaData[new_enemy_id].aggro, 1)
-                                                    if new_enemy_id == Enemies.RoboKremling:
-                                                        ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xB)
-                                                        ROM().writeMultipleBytes(0xC8, 1)
-                                                    ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xF)
-                                                    default_scale = int.from_bytes(ROM().readBytes(1), "big")
-                                                    if EnemyMetaData[new_enemy_id].size_cap > 0:
-                                                        if default_scale > EnemyMetaData[new_enemy_id].size_cap:
-                                                            ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xF)
-                                                            ROM().writeMultipleBytes(EnemyMetaData[new_enemy_id].size_cap, 1)
-                                                    if spoiler.settings.enemy_speed_rando:
-                                                        min_speed = EnemyMetaData[new_enemy_id].min_speed
-                                                        max_speed = EnemyMetaData[new_enemy_id].max_speed
-                                                        if min_speed > 0 and max_speed > 0:
-                                                            ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xD)
-                                                            agg_speed = random.randint(min_speed, max_speed)
-                                                            ROM().writeMultipleBytes(agg_speed, 1)
-                                                            ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xC)
-                                                            ROM().writeMultipleBytes(random.randint(min_speed, agg_speed), 1)
+                                if new_enemy_id != Enemies.Book or cont_map_id not in (Maps.CavesDonkeyCabin, Maps.JapesLankyCave, Maps.AngryAztecLobby):
+                                    if new_enemy_id != Enemies.Kosha or cont_map_id not in (Maps.CavesDiddyLowerCabin, Maps.CavesTinyCabin):
+                                        if new_enemy_id != Enemies.Guard or cont_map_id not in (Maps.CavesDiddyLowerCabin, Maps.CavesTinyIgloo, Maps.CavesTinyCabin):
+                                            if cont_map_id != Maps.AztecTinyTemple or spawner["index"] < 20 or spawner["index"] > 23 or not no_ground_simple_selected:
+                                                if cont_map_id != Maps.CastleBallroom or spawner["index"] > 5 or not no_ground_simple_selected:
+                                                    if cont_map_id != Maps.CastleLibrary or spawner["index"] > 4 or not no_ground_simple_selected:
+                                                        if cont_map_id != Maps.ForestSpider or EnemyMetaData[new_enemy_id].aggro != 4:  # Prevent enemies being stuck in the ceiling
+                                                            ROM().seek(cont_map_spawner_address + spawner["offset"])
+                                                            ROM().writeMultipleBytes(new_enemy_id, 1)
+                                                            if new_enemy_id in EnemyMetaData.keys():
+                                                                ROM().seek(cont_map_spawner_address + spawner["offset"] + 0x10)
+                                                                ROM().writeMultipleBytes(EnemyMetaData[new_enemy_id].aggro, 1)
+                                                                if new_enemy_id == Enemies.RoboKremling:
+                                                                    ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xB)
+                                                                    ROM().writeMultipleBytes(0xC8, 1)
+                                                                ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xF)
+                                                                default_scale = int.from_bytes(ROM().readBytes(1), "big")
+                                                                if EnemyMetaData[new_enemy_id].size_cap > 0:
+                                                                    if default_scale > EnemyMetaData[new_enemy_id].size_cap:
+                                                                        ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xF)
+                                                                        ROM().writeMultipleBytes(EnemyMetaData[new_enemy_id].size_cap, 1)
+                                                                if spoiler.settings.enemy_speed_rando:
+                                                                    min_speed = EnemyMetaData[new_enemy_id].min_speed
+                                                                    max_speed = EnemyMetaData[new_enemy_id].max_speed
+                                                                    if min_speed > 0 and max_speed > 0:
+                                                                        ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xD)
+                                                                        agg_speed = random.randint(min_speed, max_speed)
+                                                                        ROM().writeMultipleBytes(agg_speed, 1)
+                                                                        ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xC)
+                                                                        ROM().writeMultipleBytes(random.randint(min_speed, agg_speed), 1)
             if spoiler.settings.enemy_rando and cont_map_id in minigame_maps_total:
                 tied_enemy_list = []
                 if cont_map_id in minigame_maps_easy:
@@ -440,13 +524,7 @@ def randomize_enemies(spoiler: Spoiler):
                         new_enemy_id = random.choice(tied_enemy_list)
                         # Balance beaver bother so it's a 2:1 ratio of blue to gold beavers
                         if cont_map_id in minigame_maps_beavers:
-                            new_enemy_id = random.choice(
-                                [
-                                    Enemies.BeaverBlue,
-                                    Enemies.BeaverBlue,
-                                    Enemies.BeaverGold,
-                                ]
-                            )
+                            new_enemy_id = random.choice([Enemies.BeaverBlue, Enemies.BeaverBlue, Enemies.BeaverGold])
                         ROM().seek(cont_map_spawner_address + spawner["offset"])
                         ROM().writeMultipleBytes(new_enemy_id, 1)
                         if new_enemy_id in EnemyMetaData.keys():
@@ -517,16 +595,13 @@ def randomize_enemies(spoiler: Spoiler):
                                 get_out_timer = 20
                                 if crown_timer > 20:
                                     damage_mult = 1
-                                    damage_amts = {
-                                        "double": 2,
-                                        "quad": 4,
-                                        "ohko": 12,
-                                    }
+                                    damage_amts = {"double": 2, "quad": 4, "ohko": 12}
                                     if spoiler.settings.damage_amount in damage_amts:
                                         damage_mult = damage_amts[spoiler.settings.damage_amount]
                                     get_out_timer = random.randint(int(crown_timer / (12 / damage_mult)) + 1, crown_timer - 1)
                                 if get_out_timer == 0:
                                     get_out_timer = 1
+                                ROM().writeMultipleBytes(get_out_timer, 1)
                                 ROM().writeMultipleBytes(get_out_timer, 1)
                             ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xF)
                             default_scale = int.from_bytes(ROM().readBytes(1), "big")
@@ -546,3 +621,38 @@ def randomize_enemies(spoiler: Spoiler):
                     elif spawner["enemy_id"] == Enemies.BattleCrownController:
                         ROM().seek(cont_map_spawner_address + spawner["offset"] + 0xB)
                         ROM().writeMultipleBytes(crown_timer, 1)  # Determine Crown length. DK64 caps at 255 seconds
+            non_pkmn_snap_maps = [Maps.ForestSpider, Maps.CavesDiddyLowerCabin, Maps.CavesTinyCabin, Maps.CastleBoss]
+            if cont_map_id in valid_maps and cont_map_id not in non_pkmn_snap_maps:
+                # Check Pokemon Snap
+                for spawner in vanilla_spawners:
+                    check = True
+                    if cont_map_id == Maps.AztecTinyTemple and spawner["index"] < 17:
+                        # Prevent One-Time-Only Enemies in Tiny Temple from being required
+                        check = False
+                    if cont_map_id == Maps.CastleBallroom and spawner["index"] < 6:
+                        # Prevent One-Time-Only Enemies in Castle BallRoom from being required
+                        check = False
+                    if cont_map_id == Maps.CastleLibrary and spawner["index"] < 5:
+                        # Prevent One-Time-Only Enemies in Castle Library from being required
+                        check = False
+                    if cont_map_id == Maps.AztecTinyTemple and spawner["index"] > 19 and spawner["index"] < 24:
+                        # Prevent One-Time-Only Enemies in Tiny Temple from being required
+                        check = False
+                    if cont_map_id == Maps.FranticFactory and spawner["index"] > 34 and spawner["index"] < 45:
+                        # Prevent One-Time-Only Enemies in Toy Boss Fight from being required
+                        check = False
+                    if cont_map_id == Maps.CrystalCaves and spawner["index"] < 10:
+                        # Prevent Unused Enemies in Caves
+                        check = False
+                    if check:
+                        ROM().seek(cont_map_spawner_address + spawner["offset"])
+                        setPkmnSnapEnemy(int.from_bytes(ROM().readBytes(1), "big"))
+            values = [0, 0, 0, 0, 0]
+            for enemy_index, enemy in enumerate(pkmn_snap_enemies):
+                if enemy.spawned:
+                    offset = enemy_index >> 3
+                    shift = enemy_index & 7
+                    values[offset] |= 1 << shift
+            ROM().seek(spoiler.settings.rom_data + 0x117)
+            for value in values:
+                ROM().writeMultipleBytes(value, 1)

@@ -69,6 +69,30 @@ def max_randomized_medals(event):
         medal_requirement.value = 40
 
 
+@bind("focusout", "medal_cb_req")
+def max_randomized_medal_cb_req(event):
+    """Validate cb medal input on loss of focus."""
+    medal_cb_req = js.document.getElementById("medal_cb_req")
+    if not medal_cb_req.value:
+        medal_cb_req.value = 75
+    elif 1 > int(medal_cb_req.value):
+        medal_cb_req.value = 1
+    elif int(medal_cb_req.value) > 100:
+        medal_cb_req.value = 100
+
+
+@bind("focusout", "rareware_gb_fairies")
+def max_randomized_fairies(event):
+    """Validate fairy input on loss of focus."""
+    fairy_req = js.document.getElementById("rareware_gb_fairies")
+    if not fairy_req.value:
+        fairy_req.value = 20
+    elif 1 > int(fairy_req.value):
+        fairy_req.value = 1
+    elif int(fairy_req.value) > 20:
+        fairy_req.value = 20
+
+
 def min_max(event, min, max):
     """Check if the data is within bounds of requirements.
 
@@ -136,7 +160,8 @@ def set_preset_options():
     js.jq("#presets").val("-- Select a Preset --")
     toggle_counts_boxes(None)
     toggle_b_locker_boxes(None)
-    toggle_extreme_prices_option(None)
+    toggle_logic_type(None)
+
     js.load_cookies()
 
 
@@ -195,6 +220,7 @@ def update_boss_required(evt):
     boss_kong = document.getElementById("boss_kong_rando")
     kong_rando = document.getElementById("kong_rando")
     moves = document.getElementById("move_off")
+    hard_level_progression = document.getElementById("hard_level_progression")
     if level.value == "level_order":
         boss_location.setAttribute("disabled", "disabled")
         boss_location.checked = True
@@ -205,6 +231,7 @@ def update_boss_required(evt):
         if moves.selected is True:
             document.getElementById("move_on").selected = True
         moves.setAttribute("disabled", "disabled")
+        hard_level_progression.removeAttribute("disabled")
     elif level.value == "vanilla" and kong_rando.checked:
         boss_location.setAttribute("disabled", "disabled")
         boss_location.checked = True
@@ -212,12 +239,16 @@ def update_boss_required(evt):
         boss_kong.checked = True
         kong_rando.removeAttribute("disabled")
         moves.removeAttribute("disabled")
+        hard_level_progression.setAttribute("disabled", "disabled")
+        hard_level_progression.checked = False
     else:
         try:
             boss_kong.removeAttribute("disabled")
             boss_location.removeAttribute("disabled")
             kong_rando.removeAttribute("disabled")
             moves.removeAttribute("disabled")
+            hard_level_progression.setAttribute("disabled", "disabled")
+            hard_level_progression.checked = False
         except Exception:
             pass
 
@@ -339,15 +370,29 @@ def disable_helm_phases(evt):
 
 
 @bind("change", "move_rando")
-def disable_prices(evt):
-    """Disable prices if move rando is set to start with all moves."""
+def disable_move_shuffles(evt):
+    """Disable some settings based on the move rando setting."""
     moves = js.document.getElementById("move_rando")
     prices = js.document.getElementById("random_prices")
+    training_barrels = js.document.getElementById("training_barrels")
+    shockwave_status = js.document.getElementById("shockwave_status")
     try:
         if moves.value == "start_with":
             prices.setAttribute("disabled", "disabled")
+            training_barrels.value = "normal"
+            training_barrels.setAttribute("disabled", "disabled")
+            shockwave_status.value = "vanilla"
+            shockwave_status.setAttribute("disabled", "disabled")
+        elif moves.value == "off":
+            prices.removeAttribute("disabled")
+            training_barrels.value = "normal"
+            training_barrels.setAttribute("disabled", "disabled")
+            shockwave_status.value = "vanilla"
+            shockwave_status.setAttribute("disabled", "disabled")
         else:
             prices.removeAttribute("disabled")
+            training_barrels.removeAttribute("disabled")
+            shockwave_status.removeAttribute("disabled")
     except AttributeError:
         pass
 
@@ -366,6 +411,55 @@ def disable_barrel_modal(evt):
             selector.removeAttribute("disabled")
     except AttributeError:
         pass
+
+
+@bind("click", "enemy_rando")
+def disable_enemy_modal(evt):
+    """Disable Enemy Selector when Enemy Rando is off."""
+    disabled = True
+    selector = js.document.getElementById("enemies_modal")
+    if js.document.getElementById("enemy_rando").checked:
+        disabled = False
+    try:
+        if disabled:
+            selector.setAttribute("disabled", "disabled")
+        else:
+            selector.removeAttribute("disabled")
+    except AttributeError:
+        pass
+
+
+@bind("click", "shuffle_items")
+def disable_items_modal(evt):
+    """Disable Item Rando Selector when Item Rando is off."""
+    disabled = True
+    selector = js.document.getElementById("item_rando_list_modal")
+    if js.document.getElementById("shuffle_items").checked:
+        disabled = False
+    try:
+        if disabled:
+            selector.setAttribute("disabled", "disabled")
+        else:
+            selector.removeAttribute("disabled")
+    except AttributeError:
+        pass
+
+
+@bind("click", "item_rando_list_selected")
+def disable_coupled_camera_shockwave(evt):
+    """Change shockwave/camera selection to decoupled if shops are shuffled."""
+    disabled = False
+    selector = document.getElementById("item_rando_list_selected").options
+    shockwave = document.getElementById("shockwave_status_shuffled")
+    for option in selector:
+        if option.value == "shop" and option.selected:
+            if shockwave.selected is True:
+                document.getElementById("shockwave_status_shuffled_decoupled").selected = True
+            shockwave.setAttribute("disabled", "disabled")
+            disabled = True
+        else:
+            if not disabled:
+                shockwave.removeAttribute("disabled")
 
 
 @bind("click", "apply_preset")
@@ -405,7 +499,7 @@ def preset_select_changed(event):
     update_boss_required(None)
     disable_colors(None)
     disable_music(None)
-    disable_prices(None)
+    disable_move_shuffles(None)
     max_randomized_blocker(None)
     max_randomized_troff(None)
     disable_barrel_modal(None)
@@ -447,34 +541,13 @@ def toggle_medals_box(event):
         medal.removeAttribute("disabled")
 
 
-@bind("change", "coin_door_open")
-def disable_rw(evt):
-    """Disable Banana Medal values from being changed if RW coin not needed."""
-    door = document.getElementById("coin_door_open")
-    random = document.getElementById("random_medal_requirement")
-    medal = document.getElementById("medal_requirement")
-    if door.value == "need_zero" or door.value == "need_nin":
-        try:
-            random.setAttribute("disabled", "disabled")
-            random.checked = False
-            medal.setAttribute("disabled", "disabled")
-        except Exception:
-            pass
-    else:
-        try:
-            random.removeAttribute("disabled")
-            medal.removeAttribute("disabled")
-        except Exception:
-            pass
-
-
-@bind("change", "unlock_fairy_shockwave")
+@bind("change", "shockwave_status")
 def toggle_extreme_prices_option(event):
     """Determine the visibility of the extreme prices option."""
-    unlocked_shockwave = document.getElementById("unlock_fairy_shockwave").checked
-    no_logic = document.getElementById("no_logic").checked
+    unlocked_shockwave = document.getElementById("shockwave_status").value == "start_with"
+    logic_disabled = document.getElementById("logic_type").value == "nologic"
     option = document.getElementById("extreme_price_option")
-    if unlocked_shockwave or no_logic:
+    if unlocked_shockwave or logic_disabled:
         option.removeAttribute("disabled")
     else:
         option.setAttribute("disabled", "disabled")
@@ -483,18 +556,22 @@ def toggle_extreme_prices_option(event):
             price_option.value = "high"
 
 
-@bind("change", "no_logic")
-def toggle_no_logic(event):
+@bind("change", "logic_type")
+def toggle_logic_type(event):
     """Toggle settings based on the presence of logic."""
     toggle_extreme_prices_option(event)
+    glitch_customization = document.getElementById("glitches_modal")
+    if document.getElementById("logic_type").value == "glitch":
+        glitch_customization.removeAttribute("disabled")
+    else:
+        glitch_customization.setAttribute("disabled", "disabled")
 
 
 @bind("click", "nav-patch-tab")
 def toggle_patch_ui(event):
-    """Disable non-cosmetic tabs and show override option if using patch file."""
+    """Disable non-cosmetic tabs if using patch file."""
     for tab in ["nav-started-tab", "nav-random-tab", "nav-overworld-tab", "nav-difficulty-tab", "nav-qol-tab"]:
         document.getElementById(tab).setAttribute("disabled", "disabled")
-    document.getElementById("override_div").removeAttribute("hidden")
     document.getElementById("nav-cosmetics-tab").click()
 
 
@@ -504,3 +581,23 @@ def toggle_patch_ui(event):
     for tab in ["nav-started-tab", "nav-random-tab", "nav-overworld-tab", "nav-difficulty-tab", "nav-qol-tab"]:
         document.getElementById(tab).removeAttribute("disabled")
     document.getElementById("override_div").setAttribute("hidden", "hidden")
+
+
+@bind("click", "select_keys")
+def toggle_key_settings(event):
+    """Disable other keys settings when selecting keys. Toggle Key Selector Modal."""
+    disabled = False
+    if js.document.getElementById("select_keys").checked:
+        disabled = True
+    krool_access = js.document.getElementById("krool_access")
+    keys_random = js.document.getElementById("keys_random")
+    selector = js.document.getElementById("starting_keys_list_modal")
+    if disabled:
+        krool_access.setAttribute("disabled", "disabled")
+        krool_access.checked = False
+        keys_random.setAttribute("disabled", "disabled")
+        selector.removeAttribute("disabled")
+    else:
+        krool_access.removeAttribute("disabled")
+        keys_random.removeAttribute("disabled")
+        selector.setAttribute("disabled", "disabled")
