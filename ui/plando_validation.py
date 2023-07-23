@@ -201,7 +201,7 @@ def validate_level_order_no_duplicates(evt):
 
 @bind("click", "nav-plando-tab")
 def validate_on_nav(evt):
-    """A fallback for errors with Bootstrap sliders."""
+    """Fallback for errors with Bootstrap sliders."""
     validate_starting_kong_count(evt)
 
 

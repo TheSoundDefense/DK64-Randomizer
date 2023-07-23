@@ -20,6 +20,7 @@ from randomizer.LogicFiles.JungleJapes import LogicRegions as JungleJapesRegions
 
 
 def getKongString(kongEnum):
+    """Get the string name of the kong from the enum."""
     if kongEnum == Kongs.donkey:
         return "Donkey"
     elif kongEnum == Kongs.diddy:
@@ -35,6 +36,7 @@ def getKongString(kongEnum):
 
 
 def getLevelString(levelEnum):
+    """Get the string name of a level from the enum."""
     if levelEnum == Levels.DKIsles:
         return "D.K. Isles"
     elif levelEnum == Levels.JungleJapes:
@@ -76,10 +78,12 @@ HintLocationList = []
 
 
 def createPlannableLocationObj():
+    """Initialize the plannable location object."""
     return {"All Kongs": [], "Donkey": [], "Diddy": [], "Lanky": [], "Tiny": [], "Chunky": []}
 
 
 def isMinigameLocation(locationEnum):
+    """Determine if this location is a minigame location."""
     return locationEnum in BarrelMetaData
 
 
@@ -336,6 +340,7 @@ for level in allSpawnableLevels:
 
     # Sort by hint name, for better readability.
     def spawnKey(loc):
+        """Do something."""
         _, regionObj = loc
         return hintNameSortDict[regionObj.level][regionObj.hint_name]
 
