@@ -582,6 +582,12 @@ function load_data() {
                 }
               } catch {}
             }
+            // Workaround to display plandomizer tab if it's been cached.
+            plandoToggle = document.getElementById("enable_plandomizer").checked;
+            if (plandoToggle) {
+              plandoTab = document.getElementById("nav-plando-tab");
+              plandoTab.style = "";
+            }
           }
         } else {
           load_presets();

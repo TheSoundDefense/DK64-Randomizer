@@ -6,7 +6,7 @@
     <h2 class="title">{{panel["name"]}}</h2>
     {% for kong, locations in panel["locations"].items() %}
         <h3 class="title">{{kong}}</h3>
-        <div class="flex-container flex-center">
+        <div class="flex-container flex-baseline">
             {% for location in locations %}
                 <div class="location-picker">
                     <label for="plando_{{location["value"]}}_item" class="location-label">

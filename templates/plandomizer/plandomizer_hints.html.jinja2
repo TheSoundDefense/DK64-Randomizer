@@ -15,7 +15,7 @@
     </div>
     {% for _, levelObj in panel["levels"].items() %}
         <h3 class="title">{{levelObj["name"]}}</h3>
-        <div class="flex-container flex-center">
+        <div class="flex-container flex-baseline">
             {% for location in levelObj["locations"] %}
                 <div class="location-picker">
                     <label for="plando_{{location["value"]}}_hint" class="location-label">

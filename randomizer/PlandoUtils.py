@@ -328,6 +328,9 @@ for locEnum, locObj in LocationList.items():
         ItemRestrictionsPerLocation[locEnum.name].add(PlandoItems.JunkItem.name)
         ItemRestrictionsPerLocation[locEnum.name].add(PlandoItems.GoldenBanana.name)
 
+# Crowns cannot be placed at this location due to a crash.
+ItemRestrictionsPerLocation[Locations.HelmKey.name].add(PlandoItems.BattleCrown.name)
+
 # This one rock can't have Kongs as a reward.
 ItemRestrictionsPerLocation[Locations.IslesDonkeyJapesRock.name].update(KongSet)
 
@@ -625,7 +628,6 @@ PlandoEnumMap = {
     "plando_kong_rescue_lanky": Kongs,
     "plando_kong_rescue_tiny": Kongs,
     "plando_kong_rescue_chunky": Kongs,
-    "plando_starting_moves_selected": PlandoItems,
     "plando_level_order_0": Levels,
     "plando_level_order_1": Levels,
     "plando_level_order_2": Levels,
