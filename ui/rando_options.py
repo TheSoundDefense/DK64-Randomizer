@@ -1278,3 +1278,12 @@ def shuffle_settings(evt):
     toggle_key_settings(None)
     disable_helm_hurry(None)
     toggle_vanilla_door_rando(None)
+
+    # Change the text on the button to indicate that randomization happened.
+    js.document.getElementById("randomize_settings").value = "Randomized!"
+
+
+@bind("click", "nav-started-tab")
+def change_random_settings_button_text(evt):
+    """Change the text on the "Randomize Settings" button back to normal."""
+    js.document.getElementById("randomize_settings").value = "Randomize Settings"
