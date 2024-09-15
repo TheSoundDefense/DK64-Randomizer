@@ -10,6 +10,7 @@ from randomizer.Enums.Kongs import Kongs
 from randomizer.Enums.Regions import Regions
 from randomizer.Enums.Transitions import Transitions
 from randomizer.Lists.LevelInfo import LevelInfoList
+from randomizer.Lists.MapsAndExits import RegionMapList
 from randomizer.LogicClasses import TransitionBack
 
 
@@ -266,6 +267,15 @@ ShufflableExits = {
     Transitions.CastleUpperToDungeon: ShufflableExit("Creepy Castle Upper Cave to Dungeon", Regions.UpperCave, TransitionBack(Regions.Dungeon, "From Tunnel", "Creepy Castle Dungeon", Transitions.CastleDungeonToUpper), ExitCategories.CastleUpper),
     Transitions.CastleDungeonToUpper: ShufflableExit("Creepy Castle Dungeon to Upper Cave", Regions.Dungeon, TransitionBack(Regions.UpperCave, "From Dungeon", "Creepy Castle Upper Cave from Dungeon", Transitions.CastleUpperToDungeon)),
 }
+
+# Create a dictionary of maps and the transitions contained in those maps.
+MapTransitionDict = {}
+for transition, exit in ShufflableExits.items():
+    map = RegionMapList[exit.region]
+    if map in MapTransitionDict:
+        MapTransitionDict[map].append(transition)
+    else:
+        MapTransitionDict[map] = [transition]
 
 
 def GetShuffledLevelIndex(level):
