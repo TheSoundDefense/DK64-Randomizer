@@ -135,37 +135,36 @@ function PlandoCustomLocationItemFilter(itemList, locType) {
 
 
 // A dictionary indicating which mini-games are unavailable to certain Kongs.
-kongMinigameRestrictions = new Map([
-    ["Donkey", new Set([
-        "diddy_rocketbarrel",
-        "tiny_pony_tail_twirl",
-        "chunky_hidden_kremling",
-    ])],
-    ["Diddy", new Map([
-        "speedy_swing_sortie_normal",
-        "donkey_target",
-        "tiny_pony_tail_twirl",
-        "chunky_hidden_kremling",
-    ])],
-    ["Lanky", new Map([
-        "busy_barrel_barrage_easy",
-        "busy_barrel_barrage_normal",
-        "busy_barrel_barrage_hard",
-        "speedy_swing_sortie_normal",
-        "donkey_target",
-        "tiny_pony_tail_twirl",
-        "chunky_hidden_kremling",
-    ])],
-    ["Tiny", new Set([
-        "donkey_target",
-        "chunky_hidden_kremling",
-    ])],
-    ["Chunky", new Set([
-        "speedy_swing_sortie_normal",
-        "donkey_target",
-        "tiny_pony_tail_twirl",
-    ])],
-]);
+kongMinigameRestrictions = new Map();
+kongMinigameRestrictions.set("Donkey", new Set([
+    "diddy_rocketbarrel",
+    "tiny_pony_tail_twirl",
+    "chunky_hidden_kremling",
+]));
+kongMinigameRestrictions.set("Diddy", new Map([
+    "speedy_swing_sortie_normal",
+    "donkey_target",
+    "tiny_pony_tail_twirl",
+    "chunky_hidden_kremling",
+]));
+kongMinigameRestrictions.set("Lanky", new Map([
+    "busy_barrel_barrage_easy",
+    "busy_barrel_barrage_normal",
+    "busy_barrel_barrage_hard",
+    "speedy_swing_sortie_normal",
+    "donkey_target",
+    "tiny_pony_tail_twirl",
+    "chunky_hidden_kremling",
+]));
+kongMinigameRestrictions.set("Tiny", new Set([
+    "donkey_target",
+    "chunky_hidden_kremling",
+]));
+kongMinigameRestrictions.set("Chunky", new Set([
+    "speedy_swing_sortie_normal",
+    "donkey_target",
+    "tiny_pony_tail_twirl",
+]));
 
 
 /**
