@@ -23,7 +23,7 @@ from randomizer.Enums.Items import Items
 from randomizer.Enums.Kongs import GetKongs, Kongs
 from randomizer.Enums.Levels import Levels
 from randomizer.Enums.Locations import Locations
-from randomizer.Enums.Models import Model
+from randomizer.Enums.Models import Model, Sprite
 from randomizer.Enums.Regions import Regions
 from randomizer.Enums.Settings import *
 from randomizer.Enums.SongType import SongType
@@ -99,16 +99,25 @@ class Settings:
             self.troff_max = int(self.troff_text)
         else:
             self.troff_max = 270
-        self.troff_min = [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55]  # Weights for the minimum value of troff
+        self.troff_min = [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.60]  # Weights for the minimum value of troff
         if self.hard_troff_n_scoff:
-            self.troff_min = [0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75]  # Add 20% to the minimum for hard T&S
+            self.troff_min = [0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8]  # Add 20% to the minimum for hard T&S
         # In hard level progression we go through levels in a random order, so we set every level's troff min weight to the largest weight
         if self.hard_level_progression:
             self.troff_min = [self.troff_min[-1] for x in self.troff_min]
 
         CompleteVanillaPrices()
         self.prices = VanillaPrices.copy()
-        self.level_order = {1: Levels.JungleJapes, 2: Levels.AngryAztec, 3: Levels.FranticFactory, 4: Levels.GloomyGalleon, 5: Levels.FungiForest, 6: Levels.CrystalCaves, 7: Levels.CreepyCastle}
+        self.level_order = {
+            1: Levels.JungleJapes,
+            2: Levels.AngryAztec,
+            3: Levels.FranticFactory,
+            4: Levels.GloomyGalleon,
+            5: Levels.FungiForest,
+            6: Levels.CrystalCaves,
+            7: Levels.CreepyCastle,
+            8: Levels.HideoutHelm,
+        }
 
         # Used by hints in level order rando
         # By default (and in LZR) assume you have access to everything everywhere so hints are unrestricted
@@ -223,6 +232,7 @@ class Settings:
         self.troff_weight_4 = 0.8
         self.troff_weight_5 = 0.9
         self.troff_weight_6 = 1.0
+        self.troff_weight_7 = 1.0
         if self.level_randomization in (LevelRandomization.loadingzone, LevelRandomization.loadingzonesdecoupled) or self.hard_level_progression:
             self.troff_weight_0 = 1
             self.troff_weight_1 = 1
@@ -231,6 +241,7 @@ class Settings:
             self.troff_weight_4 = 1
             self.troff_weight_5 = 1
             self.troff_weight_6 = 1
+            self.troff_weight_7 = 1
 
         if self.randomize_cb_required_amounts:
             randomlist = []
@@ -244,7 +255,8 @@ class Settings:
             self.troff_4 = round(min(cbs[4] * self.troff_weight_4, 500))
             self.troff_5 = round(min(cbs[5] * self.troff_weight_5, 500))
             self.troff_6 = round(min(cbs[6] * self.troff_weight_6, 500))
-        self.BossBananas = [self.troff_0, self.troff_1, self.troff_2, self.troff_3, self.troff_4, self.troff_5, self.troff_6]
+            self.troff_7 = round(min(cbs[7] * self.troff_weight_7, 500))
+        self.BossBananas = [self.troff_0, self.troff_1, self.troff_2, self.troff_3, self.troff_4, self.troff_5, self.troff_6, self.troff_7]
 
         self.BLockerEntryItems = [BarrierItems.GoldenBanana] * 8
         self.BLockerEntryCount = [0] * 8
@@ -366,6 +378,7 @@ class Settings:
         self.troff_4 = None
         self.troff_5 = None
         self.troff_6 = None
+        self.troff_7 = None
         self.troff_min = None
         self.troff_max = None
         self.blocker_text = ""
@@ -416,9 +429,10 @@ class Settings:
         self.training_barrels_minigames = MinigameBarrels.normal
         self.bonus_barrel_auto_complete = False
 
-        # Not making this a setting that can be toggled by the user yet.
+        # Not making these a series of settings that can be toggled by the user yet.
         # If people want to be able to toggle this, we can make a simple UI switch and the back-end has already been handled appropriately
         self.sprint_barrel_requires_sprint = True
+        self.fix_lanky_tiny_prod = True
 
         self.chaos_blockers = False
 
@@ -499,6 +513,8 @@ class Settings:
         self.candy_cutscene_model = Model.Candy
         self.funky_cutscene_model = Model.Funky
         self.boot_cutscene_model = Model.Boot
+        #
+        self.minigame_melon_sprite = Sprite.BouncingMelon
         # DK
         self.dk_fur_colors = CharacterColors.vanilla
         self.dk_fur_custom_color = "#000000"
@@ -560,8 +576,16 @@ class Settings:
         self.custom_music_proportion = 100
         self.fill_with_custom_music = False
         self.show_song_name = False
+
+        # Custom Textures
         self.custom_transition = None
         self.custom_troff_portal = None
+        self.painting_isles = None
+        self.painting_museum_krool = None
+        self.painting_museum_knight = None
+        self.painting_museum_swords = None
+        self.painting_treehouse_dolphin = None
+        self.painting_treehouse_candy = None
 
         #  Misc
         self.generate_spoilerlog = None
@@ -664,7 +688,7 @@ class Settings:
         self.remove_wrinkly_puzzles = False
         self.smaller_shops = False
         self.alter_switch_allocation = False
-        self.switch_allocation = [1, 1, 1, 1, 2, 2, 3]
+        self.switch_allocation = [1, 1, 1, 1, 2, 2, 3, 3]
         self.item_reward_previews = False
         self.microhints_enabled = MicrohintsEnabled.off
         self.more_cutscene_skips = ExtraCutsceneSkips.off
@@ -1152,6 +1176,7 @@ class Settings:
         phases = [Maps.KroolDonkeyPhase, Maps.KroolDiddyPhase, Maps.KroolLankyPhase, Maps.KroolTinyPhase, Maps.KroolChunkyPhase]
         if self.krool_in_boss_pool:
             phases.extend([Maps.JapesBoss, Maps.AztecBoss, Maps.FactoryBoss, Maps.GalleonBoss, Maps.FungiBoss, Maps.CavesBoss, Maps.CastleBoss])
+        possible_phases = phases.copy()
         if self.krool_phase_order_rando:
             random.shuffle(phases)
         if self.krool_random:
@@ -1173,9 +1198,7 @@ class Settings:
             # Fill cleared out phases with available phases
             for i in range(len(phases)):
                 if phases[i] is None:
-                    available_phases = [
-                        map_id for map_id in [Maps.KroolDonkeyPhase, Maps.KroolDiddyPhase, Maps.KroolLankyPhase, Maps.KroolTinyPhase, Maps.KroolChunkyPhase] if map_id not in planned_phases
-                    ]
+                    available_phases = [map_id for map_id in possible_phases if map_id not in planned_phases]
                     phases[i] = random.choice(available_phases)
                     planned_phases.append(phases[i])
             for i in range(len(phases)):
@@ -1267,7 +1290,7 @@ class Settings:
         if self.level_randomization == LevelRandomization.vanilla:
             self.alter_switch_allocation = False
         if self.alter_switch_allocation:
-            allocation = [1, 1, 1, 1, 2, 2, 3]  # 4 levels with lvl 1, 2 with lvl 2, 1 with lvl 3
+            allocation = [1, 1, 1, 1, 2, 2, 3, 3]  # 4 levels with lvl 1, 2 with lvl 2, 1 with lvl 3
             random.shuffle(allocation)
             self.switch_allocation = allocation.copy()
 
@@ -1800,7 +1823,7 @@ class Settings:
                 self.valid_locations[Types.Blueprint][Kongs.tiny] = [location for location in blueprintLocations if spoiler.LocationList[location].kong == Kongs.tiny]
                 self.valid_locations[Types.Blueprint][Kongs.chunky] = [location for location in blueprintLocations if spoiler.LocationList[location].kong == Kongs.chunky]
             if Types.Banana in self.shuffled_location_types or Types.ToughBanana in self.shuffled_location_types:
-                self.valid_locations[Types.Banana] = [location for location in shuffledNonMoveLocations if spoiler.LocationList[location].level != Levels.HideoutHelm]
+                self.valid_locations[Types.Banana] = [location for location in shuffledNonMoveLocations]
             regular_items = (Types.Crown, Types.Key, Types.NintendoCoin, Types.RarewareCoin, Types.Pearl, Types.Bean, Types.Fairy)
             for item in regular_items:
                 if item in self.shuffled_location_types:

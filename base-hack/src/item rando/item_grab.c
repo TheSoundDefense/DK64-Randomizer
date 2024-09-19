@@ -302,23 +302,20 @@ int itemGrabHook(int collectable_type, int obj_type, int is_homing) {
      * @return Collectable Offset
      */
     if (Rando.item_rando) {
+        int is_acceptable_item = inShortList(obj_type, &acceptable_items, sizeof(acceptable_items) >> 1);
         if (obj_type == 0x13C) {
             collectKey();
         } else {
             if (inBossMap(CurrentMap, 1, 1, 0)) {
-                for (int j = 0; j < (sizeof(acceptable_items) / 2); j++) {
-                    if (obj_type == acceptable_items[j]) {
-                        setAction(0x41, 0, 0);
-                    }
+                if (is_acceptable_item) {
+                    setAction(0x41, 0, 0);
                 }
             }
         }
         if (obj_type != 0x18D) {
             if (inBattleCrown(CurrentMap)) {
-                for (int j = 0; j < (sizeof(acceptable_items) / 2); j++) {
-                    if (obj_type == acceptable_items[j]) {
-                        setAction(0x42, 0, 0);
-                    }
+                if (is_acceptable_item) {
+                    setAction(0x42, 0, 0);
                 }
             }
         }
@@ -448,7 +445,7 @@ int canDanceSkip(void) {
      * 
      * @return Dance Skip enabled
      */
-    if (CurrentMap == MAP_GALLEONPUFFTOSS) {
+    if ((CurrentMap == MAP_GALLEONPUFFTOSS) || (CurrentMap == MAP_KROOLDIDDY)) {
         return 0;
     }
     if ((Player->yPos - Player->floor) >= 100.0f) {
@@ -609,7 +606,6 @@ void getItem(int object_type) {
             // Rainbow Coin
             playSong(SONG_RAINBOWCOINGET, pickup_volume);
             hh_item = HHITEM_RAINBOWCOIN;
-            setFlag(FLAG_FIRST_COIN_COLLECTION, 1, FLAGTYPE_PERMANENT);
             forceDance();
             break;
         case 0xDD:

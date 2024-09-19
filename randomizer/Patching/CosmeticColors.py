@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import random
 import zlib
+import math
 from random import randint
 from typing import TYPE_CHECKING, List, Tuple
 from enum import IntEnum, auto
@@ -15,7 +16,7 @@ from PIL import Image, ImageDraw, ImageEnhance
 import js
 from randomizer.Enums.Kongs import Kongs
 from randomizer.Enums.Settings import CharacterColors, ColorblindMode, RandomModels, KongModels, WinConditionComplex
-from randomizer.Enums.Models import Model
+from randomizer.Enums.Models import Model, Sprite
 from randomizer.Enums.Maps import Maps
 from randomizer.Enums.Types import BarrierItems
 from randomizer.Patching.generate_kong_color_images import convertColors
@@ -280,7 +281,7 @@ spotlight_fish_models = [
     Model.BananaFairy,
     Model.Guard,
     Model.Gimpfish,
-    Model.Shuri,
+    # Model.Shuri,  # Lighting issue
     Model.Spider,
     Model.Rabbit,
     Model.KRoolCutscene,
@@ -380,6 +381,24 @@ boot_cutscene_models = [
     Model.Spider,
     Model.Bat,
     Model.KRoolGlove,
+]
+
+melon_random_sprites = [
+    Sprite.BouncingMelon,
+    Sprite.BouncingOrange,
+    Sprite.Coconut,
+    Sprite.Peanut,
+    Sprite.Grape,
+    Sprite.Feather,
+    Sprite.Pineapple,
+    Sprite.CrystalCoconut0,
+    Sprite.DKCoin,
+    Sprite.DiddyCoin,
+    Sprite.LankyCoin,
+    Sprite.TinyCoin,
+    Sprite.ChunkyCoin,
+    Sprite.Fairy,
+    Sprite.RaceCoin,
 ]
 
 model_mapping = {
@@ -500,6 +519,7 @@ def apply_cosmetic_colors(settings: Settings):
     candy_model_index = Model.Candy
     funky_model_index = Model.Funky
     boot_model_index = Model.Boot
+    melon_sprite = Sprite.BouncingMelon
     swap_bitfield = 0
 
     ROM_COPY = ROM()
@@ -605,6 +625,8 @@ def apply_cosmetic_colors(settings: Settings):
             value = random.randint(brightness_threshold, 0xFF)
             jetman_color[channel] = value
         settings.jetman_color = jetman_color.copy()
+        melon_sprite = random.choice(melon_random_sprites)
+    settings.minigame_melon_sprite = melon_sprite
     color_palettes = []
     color_obj = {}
     colors_dict = {}
@@ -672,6 +694,7 @@ def apply_cosmetic_colors(settings: Settings):
     if js.document.getElementById("override_cosmetics").checked or True:
         writeTransition(settings)
         writeCustomPortal(settings)
+        writeCustomPaintings(settings)
         if js.document.getElementById("random_colors").checked:
             for kong in KONG_ZONES:
                 for zone in KONG_ZONES[kong]:
@@ -1897,8 +1920,8 @@ def recolorMushrooms():
     reference_mushroom_image_side1 = getImageFile(25, 0xD64, True, 64, 32, TextureFormat.RGBA5551)
     reference_mushroom_image_side2 = getImageFile(25, 0xD65, True, 64, 32, TextureFormat.RGBA5551)
     files_table_7 = [296, 295, 297, 299, 298]
-    files_table_25_side_1 = [0xD60, 0x67F, 0xD64, 0xD62, 0xD66]
-    files_table_25_side_2 = [0xD61, 0x680, 0xD65, 0xD63, 0xD67]
+    files_table_25_side_1 = [0xD60, getBonusSkinOffset(ExtraTextures.MushTop0), 0xD64, 0xD62, 0xD66]
+    files_table_25_side_2 = [0xD61, getBonusSkinOffset(ExtraTextures.MushTop1), 0xD65, 0xD63, 0xD67]
     for file in range(5):
         # Mushroom on the ceiling inside Fungi Forest Lobby
         mushroom_image = getImageFile(7, files_table_7[file], False, 32, 32, TextureFormat.RGBA5551)
@@ -2517,6 +2540,49 @@ def convertColorIntToTuple(color: int) -> tuple:
     return ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF)
 
 
+def getLuma(color: tuple) -> float:
+    """Get the luma value of a color."""
+    return (0.299 * color[0]) + (0.587 * color[1]) + (0.114 * color[2])
+
+
+def adjustFungiMushVertexColor(shift: int):
+    """Adjust the special vertex coloring on Fungi Giant Mushroom."""
+    fungi_geo = bytearray(getRawFile(TableNames.MapGeometry, Maps.FungiForest, True))
+    DEFAULT_MUSHROOM_COLOR = (255, 90, 82)
+    NEW_MUSHROOM_COLOR = hueShiftColor(DEFAULT_MUSHROOM_COLOR, shift)
+    for x in range(0x27DA, 0x2839):
+        start = 0x25140 + (x * 0x10) + 0xC
+        channels = []
+        is_zero = True
+        for y in range(3):
+            val = fungi_geo[start + y]
+            if val != 0:
+                is_zero = False
+            channels.append(val)
+        if is_zero:
+            continue
+        visual_color = [int((x / 255) * DEFAULT_MUSHROOM_COLOR[xi]) for xi, x in enumerate(channels)]
+        luma = int(getLuma(visual_color))
+        # Diversify shading
+        luma -= 128
+        luma = int(luma * 1.2)
+        luma += 128
+        # Brighten
+        luma += 60
+        # Clamp
+        if luma < 0:
+            luma = 0
+        elif luma > 255:
+            luma = 255
+        # Apply shading
+        for y in range(3):
+            fungi_geo[start + y] = luma
+        fungi_geo[start + 3] = 0xFF
+    file_data = gzip.compress(fungi_geo, compresslevel=9)
+    ROM().seek(js.pointer_addresses[TableNames.MapGeometry]["entries"][Maps.FungiForest]["pointing_to"])
+    ROM().writeBytes(file_data)
+
+
 def writeMiscCosmeticChanges(settings):
     """Write miscellaneous changes to the cosmetic colors."""
     if settings.override_cosmetics:
@@ -2525,33 +2591,42 @@ def writeMiscCosmeticChanges(settings):
         enemy_setting = settings.random_enemy_colors
     if settings.misc_cosmetics:
         # Melon HUD
-        data = {7: [0x13C, 0x147], 14: [0x5A, 0x5D], 25: [getBonusSkinOffset(ExtraTextures.MelonSurface), getBonusSkinOffset(ExtraTextures.MelonSurface)]}
+        data = {
+            7: [[0x13C, 0x147]],
+            14: [[0x5A, 0x5D]],
+            25: [
+                [getBonusSkinOffset(ExtraTextures.MelonSurface), getBonusSkinOffset(ExtraTextures.MelonSurface)],
+                [0x144B, 0x1452],
+            ],
+        }
         shift = getRandomHueShift()
         for table in data:
             table_data = data[table]
-            for img in range(table_data[0], table_data[1] + 1):
-                if table == 25 and img == getBonusSkinOffset(ExtraTextures.MelonSurface):
-                    dims = (32, 32)
-                else:
-                    dims = (48, 42)
-                melon_im = getImageFile(table, img, table != 7, dims[0], dims[1], TextureFormat.RGBA5551)
-                melon_im = hueShift(melon_im, shift)
-                melon_px = melon_im.load()
-                bytes_array = []
-                for y in range(dims[1]):
-                    for x in range(dims[0]):
-                        pix_data = list(melon_px[x, y])
-                        red = int((pix_data[0] >> 3) << 11)
-                        green = int((pix_data[1] >> 3) << 6)
-                        blue = int((pix_data[2] >> 3) << 1)
-                        alpha = int(pix_data[3] != 0)
-                        value = red | green | blue | alpha
-                        bytes_array.extend([(value >> 8) & 0xFF, value & 0xFF])
-                px_data = bytearray(bytes_array)
-                if table != 7:
-                    px_data = gzip.compress(px_data, compresslevel=9)
-                ROM().seek(js.pointer_addresses[table]["entries"][img]["pointing_to"])
-                ROM().writeBytes(px_data)
+            for set in table_data:
+                for img in range(set[0], set[1] + 1):
+                    if table == 25:
+                        dims = (32, 32)
+                    else:
+                        dims = (48, 42)
+                    melon_im = getImageFile(table, img, table != 7, dims[0], dims[1], TextureFormat.RGBA5551)
+                    melon_im = hueShift(melon_im, shift)
+                    melon_px = melon_im.load()
+                    bytes_array = []
+                    for y in range(dims[1]):
+                        for x in range(dims[0]):
+                            pix_data = list(melon_px[x, y])
+                            red = int((pix_data[0] >> 3) << 11)
+                            green = int((pix_data[1] >> 3) << 6)
+                            blue = int((pix_data[2] >> 3) << 1)
+                            alpha = int(pix_data[3] != 0)
+                            value = red | green | blue | alpha
+                            bytes_array.extend([(value >> 8) & 0xFF, value & 0xFF])
+                    px_data = bytearray(bytes_array)
+                    if table != 7:
+                        px_data = gzip.compress(px_data, compresslevel=9)
+                    ROM().seek(js.pointer_addresses[table]["entries"][img]["pointing_to"])
+                    ROM().writeBytes(px_data)
+
         # Shockwave Particles
         shockwave_shift = getRandomHueShift()
         for img_index in range(0x174F, 0x1757):
@@ -2565,6 +2640,7 @@ def writeMiscCosmeticChanges(settings):
                 [0x1554, 0x155B, 16],  # Small Fireball. RGBA32 16x16
                 [0x1654, 0x1683, 32],  # Fire Wall. RGBA32 32x32
                 [0x1495, 0x14A0, 32],  # Small Explosion, RGBA32 32x32
+                [0x13B9, 0x13C3, 32],  # Small Explosion, RGBA32 32x32
             )
             for sprite_data in fires:
                 for img_index in range(sprite_data[0], sprite_data[1] + 1):
@@ -2572,12 +2648,35 @@ def writeMiscCosmeticChanges(settings):
                     hueShiftImageContainer(25, img_index, dim, dim, TextureFormat.RGBA32, fire_shift)
             for img_index in range(0x29, 0x32 + 1):
                 hueShiftImageContainer(7, img_index, 32, 32, TextureFormat.RGBA32, fire_shift)
+            for img_index in range(0x250, 0x26F + 1):
+                hueShiftImageContainer(7, img_index, 32, 32, TextureFormat.RGBA32, fire_shift)
+            for img_index in range(0xA0, 0xA7 + 1):
+                hueShiftImageContainer(7, img_index, 32, 32, TextureFormat.RGBA5551, fire_shift)
+            # Blue Fire
+            for img_index in range(129, 138 + 1):
+                hueShiftImageContainer(7, img_index, 32, 32, TextureFormat.RGBA32, fire_shift)
             # Number Game Numbers
+            COLOR_COUNT = 16  # 2 or 16
+            colors = [getRandomHueShift() for x in range(COLOR_COUNT)]
+            # vanilla_green = [2, 4, 5, 7, 9, 10, 12, 13]
+            vanilla_blue = [1, 3, 6, 8, 11, 14, 15, 16]
             for x in range(16):
-                number_hue_shift = getRandomHueShift()
+                number_hue_shift = colors[0]
+                if COLOR_COUNT == 2:
+                    if x in vanilla_blue:
+                        number_hue_shift = colors[1]
+                else:
+                    number_hue_shift = colors[x]
                 for sub_img in range(2):
                     img_index = 0x1FE + (2 * x) + sub_img
                     hueShiftImageContainer(7, img_index, 32, 32, TextureFormat.RGBA5551, number_hue_shift)
+            if COLOR_COUNT == 2:
+                hueShiftImageContainer(25, 0xC2D, 32, 32, TextureFormat.RGBA5551, colors[1])
+                hueShiftImageContainer(25, 0xC2E, 32, 32, TextureFormat.RGBA5551, colors[0])
+        boulder_shift = getRandomHueShift()
+        hueShiftImageContainer(25, 0x12F4, 1, 1372, TextureFormat.RGBA5551, boulder_shift)
+        for img_index in range(2):
+            hueShiftImageContainer(25, 0xDE1 + img_index, 32, 64, TextureFormat.RGBA5551, boulder_shift)
 
     if enemy_setting != RandomModels.off:
         # Barrel Enemy Skins - Random
@@ -2788,6 +2887,47 @@ def writeMiscCosmeticChanges(settings):
         hueShiftImageContainer(25, 0xECF, 1, 1372, TextureFormat.RGBA5551, funky_shift)
         hueShiftImageContainer(25, 0xED6, 1, 1372, TextureFormat.RGBA5551, funky_shift)
         hueShiftImageContainer(25, 0xEDF, 1, 1372, TextureFormat.RGBA5551, funky_shift)
+        # Zinger
+        zinger_shift = getRandomHueShift()
+        zinger_color = hueShiftColor((0xFF, 0xFF, 0x0A), zinger_shift)
+        zinger_color_int = (zinger_color[0] << 16) | (zinger_color[1] << 8) | (zinger_color[2])
+        hueShiftImageContainer(25, 0xF0A, 1, 1372, TextureFormat.RGBA5551, zinger_shift)
+        # Mechazinger, use zinger color
+        for img_index in (0x10A0, 0x10A2, 0x10A4, 0x10A5):
+            hueShiftImageContainer(25, img_index, 1, 1372, TextureFormat.RGBA5551, zinger_shift)
+        hueShiftImageContainer(25, 0x10A3, 32, 32, TextureFormat.RGBA32, zinger_shift)
+        # Spider
+        spider_shift = getRandomHueShift()
+        spider_dims = {
+            0x110A: (32, 64),
+            0x110B: (32, 64),
+            0x110C: (32, 64),
+            0x110D: (64, 16),
+            0x110E: (32, 64),
+            0x110F: (32, 64),
+            0x1110: (32, 64),
+            0x1111: (32, 64),
+            0x1112: (32, 64),
+            0x1113: (16, 32),
+            0x1114: (32, 32),
+            0x1115: (32, 32),
+            0x1116: (32, 32),
+            0x1117: (64, 16),
+            0x1118: (64, 32),
+            0x1119: (64, 32),
+        }
+        for img_index in spider_dims:
+            hueShiftImageContainer(25, img_index, spider_dims[img_index][0], spider_dims[img_index][1], TextureFormat.RGBA5551, spider_shift)
+
+        mush_man_shift = getRandomHueShift()
+        for img_index in (0x11FC, 0x11FD, 0x11FE, 0x11FF, 0x1200, 0x1209, 0x120A, 0x120B):
+            hueShiftImageContainer(25, img_index, 1, 1372, TextureFormat.RGBA5551, mush_man_shift)
+        for img_index in (0x11F8, 0x1205):
+            hueShiftImageContainer(25, img_index, 1, 692, TextureFormat.RGBA5551, mush_man_shift)
+        for img_index in (0x67F, 0x680):
+            hueShiftImageContainer(25, img_index, 32, 64, TextureFormat.RGBA5551, mush_man_shift)
+        hueShiftImageContainer(25, 0x6F3, 4, 4, TextureFormat.RGBA5551, mush_man_shift)
+        adjustFungiMushVertexColor(mush_man_shift)
 
         # Enemy Vertex Swaps
         blue_beaver_color = getEnemySwapColor(80, min_channel_variance=80)
@@ -2795,6 +2935,8 @@ def writeMiscCosmeticChanges(settings):
             Model.BeaverBlue_LowPoly: EnemyColorSwap([0xB2E5FF, 0x65CCFF, 0x00ABE8, 0x004E82, 0x008BD1, 0x001333, 0x1691CE], blue_beaver_color),  # Primary
             Model.BeaverBlue: EnemyColorSwap([0xB2E5FF, 0x65CCFF, 0x00ABE8, 0x004E82, 0x008BD1, 0x001333, 0x1691CE], blue_beaver_color),  # Primary
             Model.BeaverGold: EnemyColorSwap([0xFFE5B2, 0xFFCC65, 0xE8AB00, 0x824E00, 0xD18B00, 0x331300, 0xCE9116]),  # Primary
+            Model.Zinger: EnemyColorSwap([0xFFFF0A, 0xFF7F00], zinger_color_int),  # Legs
+            Model.RoboZinger: EnemyColorSwap([0xFFFF00, 0xFF5500], zinger_color_int),  # Legs
             Model.Candy: EnemyColorSwap(
                 [
                     0xFF96EB,
@@ -2818,6 +2960,7 @@ def writeMiscCosmeticChanges(settings):
                     0xB86CAA,
                 ]
             ),
+            Model.Laser: EnemyColorSwap([0xF30000]),
             Model.Kasplat: EnemyColorSwap([0x8FD8FF, 0x182A4F, 0x0B162C, 0x7A98D3, 0x3F6CC4, 0x8FD8FF, 0x284581]),
             # Model.BananaFairy: EnemyColorSwap([0xFFD400, 0xFFAA00, 0xFCD200, 0xD68F00, 0xD77D0A, 0xe49800, 0xdf7f1f, 0xa26c00, 0xd6b200, 0xdf9f1f])
         }
@@ -3326,15 +3469,15 @@ def updateCryptLeverTexture(settings: Settings) -> None:
         writeColorImageToROM(texture_1, 25, 0x999, 32, 64, False, TextureFormat.RGBA5551)
 
 
-def lightenPauseBubble(settings: Settings):
-    """Change the brightness of the text bubble used for the pause menu for light mode."""
-    if settings.dark_mode_textboxes:
+def darkenPauseBubble(settings: Settings):
+    """Change the brightness of the text bubble used for the pause menu for dark mode."""
+    if not settings.dark_mode_textboxes:
         return
     img = getImageFile(14, 107, True, 48, 32, TextureFormat.RGBA5551)
     px = img.load()
     canary_px = list(px[24, 16])
-    if canary_px[0] > 128 and canary_px[1] > 128 and canary_px[2] > 128:
-        # Already brightened, cancel
+    if canary_px[0] < 128 and canary_px[1] < 128 and canary_px[2] < 128:
+        # Already darkened, cancel
         return
     bytes_array = []
     for y in range(32):
@@ -3490,6 +3633,7 @@ boot_phrases = (
     "Enhancing Cfox Luck Voice Linesmizers",
     "Enforcing the law of the Jungle",
     "Saving 20 frames",
+    "Reporting bugs. Unlike some",
 )
 
 crown_heads = (
@@ -3535,6 +3679,78 @@ crown_heads = (
     "Crystal",
     "Creepy",
     "Hideout",
+    "Cranky",
+    "Funky",
+    "Candy",
+    "Kong",
+    "Monkey",
+    "Amazing",
+    "Incredible",
+    "Ultimate",
+    "Wrinkly",
+    "Heroic",
+    "Final",
+    "Fantastic",
+    "Krazy",
+    "Komplete",
+    "Unhinted",
+    "Unstable",
+    "Extreme",
+    "Royal",
+    "Monster",
+    "Primate",
+    "Baboon",
+    "Walnut",
+    "Peanut",
+    "Coconut",
+    "Feather",
+    "Grape",
+    "Pineapple",
+    "Barrel",
+    "Monkeyport",
+    "Kalamity",
+    "Kaboom",
+    "Magic",
+    "Fairy",
+    "Karnivorous",
+    "Krispy",
+    "Kooky",
+    "Cookin",
+    "Klutz",
+    "Kingdom",
+    "Super Duper",
+    "Rainbow",
+    "Bongo",
+    "Guitar",
+    "Trombone",
+    "Saxophone",
+    "Triangle",
+    "Dixie",
+    "Gorilla",
+    "Chimpy",
+    "Museum",
+    "Ballroom",
+    "Winch",
+    "Shipyard",
+    "Hillside",
+    "Oasis",
+    "Arcade",
+    "Mushroom",
+    "Igloo",
+    "Stupid",
+    "Spicy",
+    "Dizzy",
+    "Slot Car",
+    "Minecart",
+    "Rambi",
+    "Enguarde",
+    "Reptile",
+    "Bramble",
+    "Toxic",
+    "Rabbit",
+    "Beetle",
+    "Vulture",
+    "Boulder",
 )
 
 crown_tails = (
@@ -3580,6 +3796,41 @@ crown_tails = (
     "Joust",
     "Scuffle",
     "Hootenanny",
+    "Blitz",
+    "Tourney",
+    "Explosion",
+    "Contest",
+    "Chaos",
+    "Combat",
+    "Knockdown",
+    "Demolition",
+    "Capture",
+    "Storm",
+    "Earthquake",
+    "Charge",
+    "Tremor",
+    "Trample",
+    "Gauntlet",
+    "Challenge",
+    "Blowout",
+    "Riot",
+    "Buffoonery",
+    "Hijinxs",
+    "Frenzy",
+    "Rampage",
+    "Antics",
+    "Trouble",
+    "Revenge",
+    "Klamber",
+    "Wreckage",
+    "Quarrel",
+    "Feud",
+    "Thwack",
+    "Wallop",
+    "Donnybrook",
+    "Tangle",
+    "Crossfire",
+    "Royale",
 )
 
 
@@ -3641,6 +3892,31 @@ def writeTransition(settings: Settings) -> None:
     writeColorImageToROM(im_f, 14, 95, 64, 64, False, TextureFormat.IA4)
 
 
+def getImageChunk(im_f, width: int, height: int):
+    """Get an image chunk based on a width and height."""
+    width_height_ratio = width / height
+    im_w, im_h = im_f.size
+    im_wh_ratio = im_w / im_h
+    if im_wh_ratio != width_height_ratio:
+        # Ratio doesn't match, we have to do some rejigging
+        scale = 1
+        if width_height_ratio > im_wh_ratio:
+            # Scale based on width
+            scale = width / im_w
+        else:
+            # Height needs growing
+            scale = height / im_h
+        im_f = im_f.resize((int(im_w * scale), int(im_h * scale)))
+        im_w, im_h = im_f.size
+        middle_w = im_w / 2
+        middle_h = im_h / 2
+        middle_targ_w = width / 2
+        middle_targ_h = height / 2
+        return im_f.crop((int(middle_w - middle_targ_w), int(middle_h - middle_targ_h), int(middle_w + middle_targ_w), int(middle_h + middle_targ_h)))
+    # Ratio matches, just scale up
+    return im_f.resize((width, height))
+
+
 def writeCustomPortal(settings: Settings) -> None:
     """Write custom portal file to ROM."""
     if js.cosmetics is None:
@@ -3656,7 +3932,8 @@ def writeCustomPortal(settings: Settings) -> None:
     selected_portal = random.choice(file_data)
     settings.custom_troff_portal = selected_portal[1].split("/")[-1]  # File Name
     im_f = Image.open(BytesIO(bytes(selected_portal[0])))
-    im_f = im_f.resize((63, 63)).transpose(Image.FLIP_TOP_BOTTOM).convert("RGBA")
+    im_f = getImageChunk(im_f, 63, 63)
+    im_f = im_f.transpose(Image.FLIP_TOP_BOTTOM).convert("RGBA")
     portal_data = {
         "NW": {
             "x_min": 0,
@@ -3685,3 +3962,99 @@ def writeCustomPortal(settings: Settings) -> None:
         local_img = im_f.crop((x_min, y_min, x_min + 32, y_min + 32))
         for idx in portal_data[sub]["writes"]:
             writeColorImageToROM(local_img, 7, idx, 32, 32, False, TextureFormat.RGBA5551)
+
+
+class PaintingData:
+    """Class to store information regarding a painting."""
+
+    def __init__(self, width: int, height: int, x_split: int, y_split: int, is_bordered: bool, texture_order: list):
+        """Initialize with given parameters."""
+        self.width = width
+        self.height = height
+        self.x_split = x_split
+        self.y_split = y_split
+        self.is_bordered = is_bordered
+        self.texture_order = texture_order.copy()
+        self.name = None
+
+
+def writeCustomPaintings(settings: Settings) -> None:
+    """Write custom painting files to ROM."""
+    if js.cosmetics is None:
+        return
+    if js.cosmetics.tns_portals is None:
+        return
+    if js.cosmetic_names.tns_portals is None:
+        return
+    PAINTING_INFO = [
+        PaintingData(64, 64, 2, 1, False, [0x1EA, 0x1E9]),  # DK Isles
+        PaintingData(128, 128, 2, 4, True, [0x90A, 0x909, 0x903, 0x908, 0x904, 0x907, 0x905, 0x906]),  # K Rool
+        PaintingData(128, 128, 2, 4, True, [0x9B4, 0x9AD, 0x9B3, 0x9AE, 0x9B2, 0x9AF, 0x9B1, 0x9B0]),  # Knight
+        PaintingData(128, 128, 2, 4, True, [0x9A5, 0x9AC, 0x9A6, 0x9AB, 0x9A7, 0x9AA, 0x9A8, 0x9A9]),  # Sword
+        PaintingData(64, 32, 1, 1, False, [0xA53]),  # Dolphin
+        PaintingData(32, 64, 1, 1, False, [0xA46]),  # Candy
+    ]
+    file_data = list(zip(js.cosmetics.paintings, js.cosmetic_names.paintings))
+    settings.painting_isles = None
+    settings.painting_museum_krool = None
+    settings.painting_museum_knight = None
+    settings.painting_museum_swords = None
+    settings.painting_treehouse_dolphin = None
+    settings.painting_treehouse_candy = None
+    if len(file_data) == 0:
+        return
+    list_pool = file_data.copy()
+    PAINTING_COUNT = len(PAINTING_INFO)
+    if len(list_pool) < PAINTING_COUNT:
+        mult = math.ceil(PAINTING_COUNT / len(list_pool)) - 1
+        for _ in range(mult):
+            list_pool.extend(file_data.copy())
+    random.shuffle(list_pool)
+    for painting in PAINTING_INFO:
+        painting.name = None
+        selected_painting = list_pool.pop(0)
+        painting.name = selected_painting[1].split("/")[-1]  # File Name
+        im_f = Image.open(BytesIO(bytes(selected_painting[0])))
+        im_f = getImageChunk(im_f, painting.width, painting.height)
+        im_f = im_f.transpose(Image.FLIP_TOP_BOTTOM).convert("RGBA")
+        chunks = []
+        chunk_w = int(painting.width / painting.x_split)
+        chunk_h = int(painting.height / painting.y_split)
+        for y in range(painting.y_split):
+            for x in range(painting.x_split):
+                left = x * chunk_w
+                top = y * chunk_h
+                chunk_im = im_f.crop((int(left), int(top), int(left + chunk_w), int(top + chunk_h)))
+                chunks.append(chunk_im)
+        border_imgs = []
+        for x in range(8):
+            border_tex = PAINTING_INFO[1].texture_order[x]
+            border_img = getImageFile(25, border_tex, True, 64, 32, TextureFormat.RGBA5551)
+            border_imgs.append(border_img)
+        for chunk_index, chunk in enumerate(chunks):
+            if painting.is_bordered:
+                border_img = border_imgs[chunk_index]
+                if chunk_index in (0, 1):
+                    # Top
+                    border_seg_img = border_img.crop((0, 0, 64, 14))
+                    chunk.paste(border_seg_img, (0, 0), border_seg_img)
+                if chunk_index in (0, 2, 4, 6):
+                    # Left
+                    border_seg_img = border_img.crop((0, 0, 14, 32))
+                    chunk.paste(border_seg_img, (0, 0), border_seg_img)
+                if chunk_index in (1, 3, 5, 7):
+                    # Right
+                    border_seg_img = border_img.crop((50, 0, 64, 32))
+                    chunk.paste(border_seg_img, (50, 0), border_seg_img)
+                if chunk_index in (6, 7):
+                    # Bottom
+                    border_seg_img = border_img.crop((0, 20, 64, 32))
+                    chunk.paste(border_seg_img, (0, 20), border_seg_img)
+            img_index = painting.texture_order[chunk_index]
+            writeColorImageToROM(chunk, 25, img_index, chunk_w, chunk_h, False, TextureFormat.RGBA5551)
+    settings.painting_isles = PAINTING_INFO[0].name
+    settings.painting_museum_krool = PAINTING_INFO[1].name
+    settings.painting_museum_knight = PAINTING_INFO[2].name
+    settings.painting_museum_swords = PAINTING_INFO[3].name
+    settings.painting_treehouse_dolphin = PAINTING_INFO[4].name
+    settings.painting_treehouse_candy = PAINTING_INFO[5].name
