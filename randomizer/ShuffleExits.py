@@ -1,5 +1,6 @@
 """File that shuffles loading zone exits."""
 
+import queue
 import random
 
 import js
@@ -12,6 +13,7 @@ from randomizer.Enums.Regions import Regions
 from randomizer.Enums.Settings import ActivateAllBananaports, RandomPrices, ShuffleLoadingZones, RemovedBarriersSelected
 from randomizer.Enums.Transitions import Transitions
 from randomizer.Enums.Types import Types
+from randomizer.Lists.MapsAndExits import RegionMapList
 from randomizer.Lists.ShufflableExit import ShufflableExits
 from randomizer.LogicClasses import TransitionFront
 from randomizer.Settings import Settings
@@ -60,6 +62,60 @@ def Reset(spoiler):
         RemoveRootExit(spoiler, exit)
 
 
+def VerifyMaps(spoiler) -> bool:
+    """Determine if all of the maps are reachable from the spawn point."""
+    # A set of unexplored maps.
+    unexploredMaps = set()
+    # A dictionary of maps and the transitions contained in those maps.
+    mapTransitionDict = {}
+    for transition, exit in ShufflableExits.items():
+        map = RegionMapList[exit.region]
+        unexploredMaps.add(map)
+        if map in mapTransitionDict:
+            mapTransitionDict[map].append(transition)
+        else:
+            mapTransitionDict[map] = [transition]
+    startingMap = spoiler.settings.starting_region["map"]
+    # Copy this set in case we need to do the DLZR check.
+    unexploredMapsCopy = unexploredMaps.copy()
+
+    # Starting from the spawn map, use a BFS to determine if all maps are
+    # reachable.
+    mapQueue = queue.SimpleQueue()
+    mapQueue.put(startingMap)
+    while not mapQueue.empty():
+        currentMap = mapQueue.get()
+        unexploredMaps.discard(currentMap)
+        # Obtain every map connected to this one and add them to the queue.
+        mapTransitions = mapTransitionDict[map]
+        for transition in mapTransitions:
+            exit = ShufflableExits[transition]
+            connectingRegion = exit.back.regionId
+            if exit.shuffled:
+                connectingRegion = ShufflableExits[exit.shuffledId].region
+            connectingMap = RegionMapList[connectingRegion]
+            if connectingMap in unexploredMaps:
+                mapQueue.put(connectingMap)
+    # If there are any unexplored maps, one of them was not accessible, and the
+    # check fails.
+    if len(unexploredMaps) > 0:
+        return False
+
+    # If loading zones are decoupled, we should also check that the spawn map
+    # is reachable from every map.
+    if spoiler.settings.decoupled_loading_zones:
+        mapsLeadingToSpawn = set([startingMap])
+        unexploredMaps = unexploredMapsCopy
+        unexploredMaps.remove(startingMap)
+        mapQueue = queue.SimpleQueue()
+        firstMap = unexploredMaps.pop()
+        mapQueue.put(firstMap)
+
+    # If there are any unexplored maps, one of them was not accessible, and the
+    # check fails.
+    return len(unexploredMaps) == 0
+
+
 def AttemptConnect(spoiler, frontExit, frontId, backExit, backId):
     """Attempt to connect two exits, checking if the world is valid if they are connected."""
     # Remove connections to world root
@@ -80,8 +136,8 @@ def AttemptConnect(spoiler, frontExit, frontId, backExit, backId):
         backReverse = ShufflableExits[backExit.back.reverse]
         backReverse.shuffled = True
         backReverse.shuffledId = frontExit.back.reverse
-    # Attempt to verify world
-    valid = Fill.VerifyWorld(spoiler)
+    # Attempt to verify that all maps are reachable
+    valid = VerifyMaps(spoiler)
     # If world is not valid, restore root connections and undo new connections
     if not valid:
         AddRootExit(spoiler, backRootExit)
