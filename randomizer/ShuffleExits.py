@@ -79,8 +79,6 @@ def VerifyMaps(spoiler) -> bool:
     startingMap = Maps.Isles
     if spoiler.settings.random_starting_region:
         startingMap = spoiler.settings.starting_region["map"]
-    # Copy this set in case we need to do the DLZR check.
-    unexploredMapsCopy = unexploredMaps.copy()
 
     # Starting from the spawn map, use a BFS to determine if all maps are
     # reachable.
@@ -88,46 +86,20 @@ def VerifyMaps(spoiler) -> bool:
     mapQueue.put(startingMap)
     while not mapQueue.empty():
         currentMap = mapQueue.get()
-        #print(unexploredMaps)
-        #print(currentMap)
         unexploredMaps.discard(currentMap)
         # Obtain every map connected to this one and add them to the queue.
         mapTransitions = mapTransitionDict[currentMap]
-        #print(mapTransitions)
         for transition in mapTransitions:
             exit = ShufflableExits[transition]
             connectingRegion = exit.back.regionId
-            #print("Point 1")
-            #print(connectingRegion)
             if exit.shuffled:
                 connectingRegion = ShufflableExits[exit.shuffledId].region
-                #print("Point 2")
-                #print(connectingRegion)
             connectingMap = RegionMapList[connectingRegion]
-            #print(connectingMap)
             if connectingMap in unexploredMaps:
                 mapQueue.put(connectingMap)
     # If there are any unexplored maps, one of them was not accessible, and the
     # check fails.
-    print(unexploredMaps)
-    if len(unexploredMaps) > 0:
-        return False
-
-    # If loading zones are decoupled, we should also check that the spawn map
-    # is reachable from every map.
-    #if spoiler.settings.decoupled_loading_zones:
-    #    mapsLeadingToSpawn = set([startingMap])
-    #    unexploredMaps = unexploredMapsCopy
-    #    unexploredMaps.remove(startingMap)
-    #    mapQueue = queue.SimpleQueue()
-    #    firstMap = unexploredMaps.pop()
-    #    mapQueue.put(firstMap)
-
-    # If there are any unexplored maps, one of them was not accessible, and the
-    # check fails.
-    #return len(unexploredMaps) == 0
-
-    return True
+    return len(unexploredMaps) == 0
 
 
 def AttemptConnect(spoiler, frontExit, frontId, backExit, backId):
