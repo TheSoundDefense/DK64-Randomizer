@@ -26,6 +26,7 @@ from ui.plando_validation import (
     lock_key_8_in_helm,
     populate_plando_options,
     reset_plando_options_no_prompt,
+    validate_boss_order_no_duplicates,
     validate_custom_arena_locations,
     validate_custom_crate_locations,
     validate_custom_doors_no_duplicate_locations,
@@ -37,7 +38,6 @@ from ui.plando_validation import (
     validate_hint_count,
     validate_hint_text,
     validate_item_limits,
-    validate_krool_order_no_duplicates,
     validate_level_order_no_duplicates,
     validate_no_crate_items_with_shuffled_crates,
     validate_no_crown_items_with_shuffled_crowns,
@@ -255,7 +255,7 @@ async def import_plando_options(jsonString):
     validate_shuffle_shops_no_conflict(None)
     validate_starting_kong_count(None)
     validate_level_order_no_duplicates(None)
-    validate_krool_order_no_duplicates(None)
+    validate_boss_order_no_duplicates(None)
     validate_helm_order_no_duplicates(None)
     validate_no_crate_items_with_shuffled_crates(None)
     validate_no_crown_items_with_shuffled_crowns(None)

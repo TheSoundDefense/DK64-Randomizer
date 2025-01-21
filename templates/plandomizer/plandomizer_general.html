@@ -15,7 +15,7 @@
     }
 
     .order-label {
-        width: 70px;
+        width: 80px;
     }
 
     .order-select {
@@ -295,11 +295,39 @@
                 {% endfor %}
             </div>
             <div class="item-select wide-select">
-                <p class="select-title">K. Rool Order</p>
+                <p class="select-title">Boss Order</p>
+                {% for i in range(0, 7) %}
+                    <label id="plando_boss_order_div_{{i}}"
+                        class="flex-container select-order">
+                        <span class="order-label">Level {{i+1}}:</span>
+                        <div id="plando_boss_order_{{i}}_wrapper"
+                             data-toggle="tooltip"
+                             title>
+                            <select id="plando_boss_order_{{i}}"
+                                    name="plando_boss_order_{{i}}"
+                                    class="form-select order-select">
+                                <option value="" selected">
+                                    -- Randomize --
+                                </option>
+                                {% for phase in plando_phases %}
+                                  <option value="{{phase["value"]}}"
+                                  {% if "Boss" in phase["value"] %}
+                                    class="plando-tns-boss"
+                                  {% else %}
+                                    class="plando-krool-phase"
+                                  {% endif %}
+                                  >
+                                    {{phase["name"]}}
+                                  </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </label>
+                {% endfor %}
                 {% for i in range(0, 5) %}
                     <label id="plando_krool_order_div_{{i}}"
                         class="flex-container select-order">
-                        <span class="order-label">Phase {{i+1}}:</span>
+                        <span class="order-label">K. Rool {{i+1}}:</span>
                         <div id="plando_krool_order_{{i}}_wrapper"
                              data-toggle="tooltip"
                              title>

@@ -918,19 +918,33 @@ function plando_disable_krool_phases_as_bosses(evt) {
   const kroolInBossPool = document.getElementById("krool_in_boss_pool").checked;
   const tnsBossOptions = document.getElementsByClassName("plando-tns-boss");
 
-  if (kroolInBossPool) {
-    for (let option of tnsBossOptions) {
-      option.removeAttribute("disabled");
-    }
-  } else {
-    for (let option of tnsBossOptions) {
-      option.setAttribute("disabled", "disabled");
-    }
-    for (let i = 0; i < 5; i++) {
-      const kroolPhase = document.getElementById(`plando_krool_order_${i}`);
-      if (kroolPhase.value.includes("Boss")) {
-        kroolPhase.value = "";
+  for (let i = 0; i < 7; i++) {
+    const levelBoss = document.getElementById(`plando_boss_order_${i}`);
+    for (const option of levelBoss.options) {
+      if (option.value === "") continue;
+      if (!kroolInBossPool && option.classList.contains("plando-krool-phase")) {
+        option.setAttribute("disabled", "disabled");
+      } else {
+        option.removeAttribute("disabled");
       }
+    }
+    if (!kroolInBossPool && levelBoss.value.includes("Phase")) {
+      levelBoss.value = "";
+    }
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const kroolBoss = document.getElementById(`plando_krool_order_${i}`);
+    for (const option of kroolBoss.options) {
+      if (option.value === "") continue;
+      if (!kroolInBossPool && option.classList.contains("plando-tns-boss")) {
+        option.setAttribute("disabled", "disabled");
+      } else {
+        option.removeAttribute("disabled");
+      }
+    }
+    if (!kroolInBossPool && kroolBoss.value.includes("Boss")) {
+      kroolBoss.value = "";
     }
   }
 }
